@@ -1,0 +1,73 @@
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PHP
+vendor/
+composer.lock
+*.log
+
+# Local configuration files
+.env
+.env.local
+.env.*.local
+
+# Cache and temporary files
+cache/
+tmp/
+temp/
+*.tmp
+*.cache
+
+# Test coverage reports
+coverage/
+.coverage
+*.coverage
+clover.xml
+
+# PHPUnit
+.phpunit.result.cache
+phpunit.xml
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+build/
+dist/
+
+# Package files
+*.phar
+*.tar
+*.tar.gz
+*.zip
+
+# Neural network training artifacts
+*.model
+*.weights
+*.json.bak
+training_logs/
+models/
+
+# Example outputs (from quickstart examples)
+examples/*.json
+examples/*.model
+examples/demo_model.json
+examples/xor_model.json

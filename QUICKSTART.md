@@ -11,13 +11,14 @@ Welcome to NiNa! This guide will help you get started with the library in just a
 ## 🔧 Installation
 
 1. **Clone or download the library:**
-2. 
+
    ```bash
    git clone https://github.com/yourusername/nina.git
    cd nina
    ```
 
-3. **Include required files in your project:**
+2. **Include required files in your project:**
+
    ```php
    <?php
    // Core library
