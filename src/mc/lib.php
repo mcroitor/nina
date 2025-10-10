@@ -7,7 +7,7 @@
  * between formats, and distance calculations between vectors.
  * 
  * @package mc
- * @author Your Name
+ * @author Mihail Croitor
  * @version 1.0
  */
 

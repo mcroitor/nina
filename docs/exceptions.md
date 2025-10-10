@@ -43,15 +43,18 @@ abstract class NinaException extends Exception
 ## Exception Types
 
 ### ValidationException (6001-6099)
+
 **Purpose**: Input validation and parameter checking errors
 
 **Common Scenarios**:
+
 - Invalid parameter values
 - Out-of-range parameters
 - Missing required parameters
 - Array size mismatches
 
 **Usage Example**:
+
 ```php
 try {
     $cell = new Cell("", []); // Empty name and weights
@@ -63,15 +66,18 @@ try {
 ```
 
 ### NetworkException (1001-1099)
+
 **Purpose**: Neural network architecture and configuration errors
 
 **Common Scenarios**:
+
 - Invalid network architecture
 - Incompatible layer connections
 - Configuration parameter errors
 - Network operation failures
 
 **Usage Example**:
+
 ```php
 try {
     $network = Network::Create("TestNet", 0, -5); // Invalid parameters
@@ -81,36 +87,44 @@ try {
 ```
 
 ### LayerException (2001-2099)
+
 **Purpose**: Layer-specific operation and configuration errors
 
 **Common Scenarios**:
+
 - Invalid layer sizes
 - Dimension mismatches between layers
 - Layer connection errors
 - Layer operation failures
 
 ### TrainingException (3001-3099)
+
 **Purpose**: Training process and genetic algorithm errors
 
 **Common Scenarios**:
+
 - Invalid training data
 - Training convergence issues
 - Population size errors
 - Training parameter validation
 
 ### SerializationException (4001-4099)
+
 **Purpose**: Model save/load and JSON operations errors
 
 **Common Scenarios**:
+
 - File operation errors
 - JSON parsing/encoding failures
 - Model version mismatches
 - Data corruption during serialization
 
 ### ComputationException (5001-5099)
+
 **Purpose**: Mathematical computation and numerical errors
 
 **Common Scenarios**:
+
 - Division by zero
 - Numerical overflow/underflow
 - Invalid mathematical operations
@@ -130,6 +144,7 @@ try {
 ## Best Practices
 
 ### 1. Specific Exception Handling
+
 ```php
 try {
     // Neural network operations
@@ -146,6 +161,7 @@ try {
 ```
 
 ### 2. Context Utilization
+
 ```php
 try {
     $network->Calculate($invalidInput);
@@ -158,6 +174,7 @@ try {
 ```
 
 ### 3. Logging and Debugging
+
 ```php
 try {
     // Library operations
@@ -175,6 +192,7 @@ try {
 ```
 
 ### 4. Recovery Strategies
+
 ```php
 try {
     $trainer->Train($input, $expected);
@@ -193,26 +211,31 @@ try {
 ## Integration with Library Components
 
 ### Cell Class Integration
+
 - Validates weights array size and values
 - Checks activation function compatibility
 - Handles computation errors during calculation
 
 ### Layer Class Integration
+
 - Validates cell array and layer configuration
 - Handles dimension mismatches
 - Manages layer operation errors
 
 ### Network Class Integration
+
 - Validates network architecture
 - Handles layer compatibility issues
 - Manages network-wide operation errors
 
 ### Trainer Class Integration
+
 - Validates training parameters and data
 - Handles population management errors
 - Manages genetic algorithm failures
 
 ### Predictor Class Integration
+
 - Validates input data format
 - Handles prediction computation errors
 - Manages result formatting issues
@@ -220,18 +243,22 @@ try {
 ## Error Recovery and Debugging
 
 ### Severity Levels
+
 - **error**: Standard errors that can often be recovered from
 - **warning**: Non-critical issues that don't stop execution
 - **critical**: Serious errors that require immediate attention
 
 ### Context Information
+
 Each exception provides relevant context:
+
 - Parameter names and values that caused the error
 - Expected vs. actual values
 - Operation being performed when error occurred
 - Additional debugging information
 
 ### Debugging Tips
+
 1. **Check Error Codes**: Use specific error codes to identify exact issues
 2. **Examine Context**: Review context data for parameter details
 3. **Use Detailed Messages**: Get comprehensive error descriptions

@@ -15,7 +15,7 @@ use function mc\manhattan_distance;
  * to evaluate prediction quality.
  * 
  * @package mc\nina
- * @author Your Name
+ * @author Mihail Croitor
  * @version 1.0
  * 
  * @example

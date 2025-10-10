@@ -5,22 +5,26 @@ Welcome to the NiNa Neural Network Library documentation. This library provides 
 ## 📚 Documentation Structure
 
 ### Core Documentation
+
 - **[API Reference](api.md)** - Complete API documentation with examples
 - **[Architecture Guide](architecture.md)** - Detailed architecture and design patterns
 - **[Exception System](exceptions.md)** - Error handling and debugging guide
 
 ### Language Versions
+
 - **English** - Current directory
 - **[Russian (Русский)](ru/)** - Русскоязычная документация
 
 ## 🚀 Quick Links
 
 ### Getting Started
+
 - [Installation and Setup](../README.md#installation)
 - [Quick Start Guide](../README.md#quick-start)
 - [Basic Examples](../README.md#usage-examples)
 
 ### API Reference
+
 - [Cell (Neuron)](api.md#cell---neuron) - Individual neural processing unit
 - [Layer](api.md#layer---layer) - Collection of neurons
 - [Network](api.md#network---neural-network) - Complete neural network
@@ -28,6 +32,7 @@ Welcome to the NiNa Neural Network Library documentation. This library provides 
 - [Predictor](api.md#predictor---predictor) - Making predictions
 
 ### Advanced Topics
+
 - [Activation Functions](api.md#activation-functions) - ReLU, Sigmoid, Tanh, Softmax
 - [Exception System](exceptions.md) - Comprehensive error handling
 - [Architecture Patterns](architecture.md#design-patterns-summary) - SOLID principles and design patterns
@@ -43,7 +48,9 @@ Welcome to the NiNa Neural Network Library documentation. This library provides 
 ## 📖 Documentation Overview
 
 ### [API Documentation](api.md)
+
 Complete reference for all classes, methods, and functions:
+
 - Detailed method signatures
 - Parameter descriptions
 - Return values and exceptions
@@ -51,7 +58,9 @@ Complete reference for all classes, methods, and functions:
 - Error handling patterns
 
 ### [Architecture Guide](architecture.md)
+
 In-depth look at library design:
+
 - Component relationships and data flow
 - SOLID principles implementation
 - Design patterns used
@@ -59,7 +68,9 @@ In-depth look at library design:
 - Scalability and extensibility
 
 ### [Exception System](exceptions.md)
+
 Comprehensive error handling guide:
+
 - Exception hierarchy and types
 - Error codes and meanings
 - Best practices for error handling
@@ -75,6 +86,7 @@ Comprehensive error handling guide:
 ## 🤝 Contributing to Documentation
 
 We welcome improvements to documentation! Please:
+
 1. Follow existing structure and style
 2. Include practical examples
 3. Test all code samples

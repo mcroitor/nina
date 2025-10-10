@@ -15,7 +15,7 @@ use mc\nina\exception\SerializationException;
  * This is fundamental to neural network architecture where layers are stacked.
  * 
  * @package mc\nina
- * @author NiNa Library
+ * @author Mihail Croitor
  * @version 0.2.0
  * @since 0.1.0
  */

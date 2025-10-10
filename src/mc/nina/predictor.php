@@ -15,7 +15,7 @@ use function mc\array2string;
  * Provides convenient interface for using trained neural networks.
  * 
  * @package mc\nina
- * @author Your Name
+ * @author Mihail Croitor
  * @version 1.0
  * 
  * @example

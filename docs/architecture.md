@@ -57,7 +57,7 @@ Training & Prediction Components:
 
 **Data Flow:**
 
-```
+```txt
 Input Array → Weight Multiplication → Sum → Activation Function → Output
 ```
 
@@ -85,7 +85,7 @@ Input Array → Weight Multiplication → Sum → Activation Function → Output
 
 **Data Flow:**
 
-```
+```txt
 Input Array → [Cell1, Cell2, ..., CellN] → Output Array
 ```
 
@@ -112,7 +112,7 @@ Input Array → [Cell1, Cell2, ..., CellN] → Output Array
 
 **Data Flow:**
 
-```
+```txt
 Input → Layer1 → Layer2 → ... → LayerN → Output
 ```
 
@@ -140,7 +140,7 @@ Input → Layer1 → Layer2 → ... → LayerN → Output
 
 **Algorithm:**
 
-```
+```txt
 1. Initialize population of networks
 2. Evaluate fitness for each network
 3. Select best performing network
@@ -172,7 +172,7 @@ Input → Layer1 → Layer2 → ... → LayerN → Output
 
 **Data Flow:**
 
-```
+```txt
 String Input → Array Conversion → Network Processing → String Output
 ```
 
@@ -236,16 +236,19 @@ NinaException (Abstract Base)
 ### Exception Features:
 
 **Context Management:**
+
 - Detailed error context
 - Parameter values that caused errors
 - Operation being performed
 
 **Severity Levels:**
+
 - `error`: Standard recoverable errors
 - `warning`: Non-critical issues
 - `critical`: System-threatening errors
 
 **Debugging Support:**
+
 - Detailed error messages
 - Stack trace preservation
 - JSON serialization for logging
@@ -254,7 +257,7 @@ NinaException (Abstract Base)
 
 ### Training Flow (Genetic Algorithm)
 
-```
+```txt
 1. Input Data (String)
    ↓
 2. Population Evaluation
@@ -274,7 +277,7 @@ NinaException (Abstract Base)
 
 ### Prediction Flow
 
-```
+```txt
 1. String Input
    ↓
 2. String to Array Conversion
@@ -291,7 +294,7 @@ NinaException (Abstract Base)
 
 ### Serialization Flow
 
-```
+```txt
 Save:
 Network → Layers Array → Cells Array → JSON String → File
 
@@ -302,6 +305,7 @@ File → JSON String → Cells Array → Layers Array → Network
 ## 📏 SOLID Principles Implementation
 
 ### Single Responsibility Principle (SRP)
+
 - **Cell**: Only neuron computation
 - **Layer**: Only layer management
 - **Network**: Only network architecture
@@ -309,33 +313,40 @@ File → JSON String → Cells Array → Layers Array → Network
 - **Predictor**: Only prediction interface
 
 ### Open/Closed Principle (OCP)
+
 - **ActivationFunction interface**: New functions without modifying existing code
 - **Exception system**: New exception types without breaking existing handlers
 
 ### Liskov Substitution Principle (LSP)
+
 - **All ActivationFunction implementations**: Interchangeable
 - **Exception hierarchy**: All exceptions can be caught as NinaException
 
 ### Interface Segregation Principle (ISP)
+
 - **ActivationFunction**: Small, focused interface
 - **Separate interfaces**: No forced dependencies on unused methods
 
 ### Dependency Inversion Principle (DIP)
+
 - **Cell depends on ActivationFunction interface**: Not concrete implementations
 - **High-level modules**: Don't depend on low-level details
 
 ## 🔧 Design Patterns Summary
 
 ### Creational Patterns
+
 - **Factory Method**: Cell::Create(), Layer::Create(), Network::Create()
 - **Builder**: Network construction with fluent interface potential
 
 ### Structural Patterns
+
 - **Composite**: Layer containing multiple Cells
 - **Adapter**: Predictor adapting string interface to network arrays
 - **Facade**: Network providing simple interface to complex layer operations
 
 ### Behavioral Patterns
+
 - **Strategy**: ActivationFunction selection
 - **Template Method**: Genetic algorithm structure in Trainer
 - **Chain of Responsibility**: Sequential layer processing
@@ -344,18 +355,21 @@ File → JSON String → Cells Array → Layers Array → Network
 ## 🚀 Scalability and Performance
 
 ### Current Architecture Strengths:
+
 - **Modular Design**: Easy to extend and modify
 - **Clear Interfaces**: Well-defined component boundaries
 - **Exception Safety**: Robust error handling
 - **Serialization**: Model persistence and sharing
 
 ### Future Optimization Opportunities:
+
 - **Batch Processing**: Multiple inputs simultaneously
 - **GPU Acceleration**: Parallel computation support
 - **Advanced Algorithms**: Backpropagation, gradient descent
 - **Memory Optimization**: Large network handling
 
 ### Extensibility Points:
+
 - **New Activation Functions**: Implement ActivationFunction interface
 - **Training Algorithms**: Alternative to genetic approach
 - **Layer Types**: Convolutional, LSTM, attention layers
@@ -378,6 +392,7 @@ File → JSON String → Cells Array → Layers Array → Network
 - **Trainer**: O(p*l*m*n) for population storage
 
 ### Optimization Strategies:
+
 - **Weight Sharing**: Reduce memory in similar layers
 - **Lazy Loading**: Load network parts on demand
 - **Caching**: Cache frequently used calculations
