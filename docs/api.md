@@ -32,15 +32,18 @@ public function __construct(
 ```
 
 **Parameters:**
+
 - `$name` (string) - Unique neuron name
 - `$dna` (array) - Array of weights (float values)
 - `$activationFunction` (ActivationFunction|null) - Activation function (default ReLU)
 
 **Exceptions:**
+
 - `ValidationException` - On invalid parameters
 - `ComputationException` - On incorrect numerical values
 
 **Example:**
+
 ```php
 use mc\nina\Cell;
 use mc\nina\activation\Sigmoid;
@@ -58,6 +61,7 @@ public static function Create(
 ```
 
 **Parameters:**
+
 - `$name` (string) - Neuron name
 - `$size` (int) - Number of weights (input layer size)
 - `$value` (float) - Initial value for all weights
@@ -66,10 +70,12 @@ public static function Create(
 **Returns:** `Cell` - New neuron object
 
 **Exceptions:**
+
 - `ValidationException` - When size <= 0 or invalid name
 - `ComputationException` - On incorrect value
 
 **Example:**
+
 ```php
 $cell = Cell::Create("neuron_1", 5, 0.1, new ReLU());
 ```
@@ -83,15 +89,18 @@ public function Calculate(array $values): float
 Calculates neuron output (forward propagation with activation).
 
 **Parameters:**
+
 - `$values` (array) - Input values for the neuron
 
 **Returns:** `float` - Activated neuron output
 
 **Exceptions:**
+
 - `ValidationException` - On input/weight size mismatch
 - `ComputationException` - On numerical errors or invalid values
 
 **Example:**
+
 ```php
 $input = [1.0, 0.5, -0.3];
 $output = $cell->Calculate($input);
@@ -105,11 +114,13 @@ public function CalculateRaw(array $values): float
 Calculates weighted sum without applying activation function.
 
 **Parameters:**
+
 - `$values` (array) - Input values
 
 **Returns:** `float` - Raw output (before activation)
 
 **Example:**
+
 ```php
 $rawOutput = $cell->CalculateRaw($input);
 echo "Raw output: {$rawOutput}"; // Raw output: 1.1
@@ -122,11 +133,13 @@ public function Born(int $percent): Cell
 Creates new neuron based on current with weight mutation.
 
 **Parameters:**
+
 - `$percent` (int) - Mutation percentage (0-100)
 
 **Returns:** `Cell` - New mutated neuron
 
 **Example:**
+
 ```php
 $mutatedCell = $cell->Born(10); // 10% mutation
 ```
@@ -136,31 +149,37 @@ $mutatedCell = $cell->Born(10); // 10% mutation
 ```php
 public function GetName(): string
 ```
+
 Returns neuron name.
 
 ```php
 public function GetDna(): array
 ```
+
 Returns neuron weights array.
 
 ```php
 public function GetSize(): int
 ```
+
 Returns number of weights (input size).
 
 ```php
 public function GetValue(int $index): float
 ```
+
 Returns specific weight by index.
 
 ```php
 public function GetActivationFunction(): ActivationFunction
 ```
+
 Returns neuron activation function.
 
 ```php
 public function SetActivationFunction(ActivationFunction $activationFunction): void
 ```
+
 Sets new activation function.
 
 #### Serialization
@@ -168,24 +187,29 @@ Sets new activation function.
 ```php
 public function Json(): string
 ```
+
 Serializes neuron to JSON format.
 
 **Returns:** `string` - JSON representation of neuron
 
 **Exceptions:**
+
 - `SerializationException` - On JSON encoding errors
 
 ```php
 public static function Load(string $json): Cell
 ```
+
 Loads neuron from JSON.
 
 **Parameters:**
+
 - `$json` (string) - JSON string
 
 **Returns:** `Cell` - Restored neuron
 
 **Exceptions:**
+
 - `SerializationException` - On JSON parsing errors
 
 ---
@@ -201,10 +225,12 @@ public function __construct(string $name, array $cells)
 ```
 
 **Parameters:**
+
 - `$name` (string) - Layer name
 - `$cells` (array) - Array of Cell objects
 
 **Exceptions:**
+
 - `ValidationException` - On invalid name or incorrect cell types
 - `LayerException` - On empty cell array
 
@@ -213,11 +239,13 @@ public static function Create(int $size): Layer
 ```
 
 **Parameters:**
+
 - `$size` (int) - Number of neurons in layer
 
 **Returns:** `Layer` - New layer
 
 **Exceptions:**
+
 - `LayerException` - When size <= 0
 
 #### Main Methods
@@ -229,11 +257,13 @@ public function Calculate(array $values): array
 Processes input data through all layer neurons.
 
 **Parameters:**
+
 - `$values` (array) - Input data
 
 **Returns:** `array` - Array of outputs from all neurons
 
 **Exceptions:**
+
 - `ValidationException` - On empty input data
 - `LayerException` - On neuron calculation errors
 
@@ -244,6 +274,7 @@ public function Born(int $percent): Layer
 Creates new layer with mutated neurons.
 
 **Parameters:**
+
 - `$percent` (int) - Mutation percentage
 
 **Returns:** `Layer` - New mutated layer
@@ -253,19 +284,23 @@ Creates new layer with mutated neurons.
 ```php
 public function GetName(): string
 ```
+
 Returns layer name.
 
 ```php
 public function GetCell(int $index): Cell
 ```
+
 Returns neuron by index.
 
 **Exceptions:**
+
 - `ValidationException` - On invalid index
 
 ```php
 public function GetSize(): int
 ```
+
 Returns number of neurons in layer.
 
 #### Serialization
@@ -290,10 +325,12 @@ public function __construct(string $name, array $layers)
 ```
 
 **Parameters:**
+
 - `$name` (string) - Network name
 - `$layers` (array) - Array of Layer objects
 
 **Exceptions:**
+
 - `ValidationException` - On invalid name or layer types
 - `NetworkException` - On empty layer array or incompatible sizes
 
@@ -302,6 +339,7 @@ public static function Create(string $name, int $nrLayers, int $layerSize): Netw
 ```
 
 **Parameters:**
+
 - `$name` (string) - Network name
 - `$nrLayers` (int) - Number of layers
 - `$layerSize` (int) - Size of each layer
@@ -309,6 +347,7 @@ public static function Create(string $name, int $nrLayers, int $layerSize): Netw
 **Returns:** `Network` - New network
 
 **Exceptions:**
+
 - `ValidationException` - On invalid name
 - `NetworkException` - On non-positive parameter values
 
@@ -321,16 +360,19 @@ public function Calculate(array $values): array
 Performs forward propagation through entire network.
 
 **Parameters:**
+
 - `$values` (array) - Input data
 
 **Returns:** `array` - Final network outputs
 
 **Features:**
+
 - Automatically adjusts input data size to first layer size
 - If input data is smaller - pads with zeros
 - If larger - truncates to required size
 
 **Exceptions:**
+
 - `ValidationException` - On empty input data
 - `NetworkException` - On layer calculation errors
 
@@ -341,6 +383,7 @@ public function Born(int $percent): Network
 Creates new network with mutated layers.
 
 **Parameters:**
+
 - `$percent` (int) - Mutation percentage
 
 **Returns:** `Network` - New mutated network
@@ -350,24 +393,29 @@ Creates new network with mutated layers.
 ```php
 public function GetName(): string
 ```
+
 Returns network name.
 
 ```php
 public function GetNrLayers(): int
 ```
+
 Returns number of layers.
 
 ```php
 public function GetLayerSize(): int
 ```
+
 Returns layer size (all layers have same size).
 
 ```php
 public function GetLayer(int $index): Layer
 ```
+
 Returns layer by index.
 
 **Exceptions:**
+
 - `ValidationException` - On invalid index
 
 #### Serialization
@@ -392,10 +440,12 @@ public function __construct(Network $network, int $pull)
 ```
 
 **Parameters:**
+
 - `$network` (Network) - Base network for evolution
 - `$pull` (int) - Population size (1-1000)
 
 **Exceptions:**
+
 - `ValidationException` - On incorrect network type
 - `TrainingException` - On invalid population size
 
@@ -408,33 +458,40 @@ public function Train(string $input, string $expected): void
 Performs one training cycle with given data.
 
 **Parameters:**
+
 - `$input` (string) - Training input data
 - `$expected` (string) - Expected result
 
 **Algorithm:**
+
 1. Tests all networks in population
 2. Selects best by Manhattan distance
 3. Creates new population based on best network
 
 **Exceptions:**
+
 - `TrainingException` - On empty data or calculation errors
 
 ```php
 public function getBestNetwork(): Network
 ```
+
 Returns best network from population.
 
 ```php
 public function getNetworks(): array
 ```
+
 Returns entire current population.
 
 ```php
 public function getNetworkByIndex(int $index): Network
 ```
+
 Returns network by index from population.
 
 **Exceptions:**
+
 - `ValidationException` - On invalid index
 
 ---
@@ -450,9 +507,11 @@ public function __construct(Network $network)
 ```
 
 **Parameters:**
+
 - `$network` (Network) - Trained network
 
 **Exceptions:**
+
 - `ValidationException` - On incorrect network type
 
 #### Main Methods
@@ -464,16 +523,19 @@ public function Predict(string $input): string
 Gets prediction from network.
 
 **Parameters:**
+
 - `$input` (string) - Input data
 
 **Returns:** `string` - Network prediction
 
 **Process:**
+
 1. Converts string to number array
 2. Runs through network
 3. Converts result back to string
 
 **Exceptions:**
+
 - `ValidationException` - On empty input data
 - `ComputationException` - On calculation errors or incorrect results
 
@@ -505,6 +567,7 @@ $output = $relu->activate(0.5);  // 0.5
 ```
 
 **Characteristics:**
+
 - Range: [0, ∞)
 - Derivative: 1 if x > 0, else 0
 - Application: Hidden layers, fast training
@@ -520,6 +583,7 @@ $output = $sigmoid->activate(1.0); // 0.73105
 ```
 
 **Characteristics:**
+
 - Range: (0, 1)
 - Derivative: σ(x)(1-σ(x))
 - Application: Binary classification, output layers
@@ -535,6 +599,7 @@ $output = $tanh->activate(1.0);  // 0.76159
 ```
 
 **Characteristics:**
+
 - Range: (-1, 1)
 - Derivative: 1-tanh²(x)
 - Application: Hidden layers, centered output
@@ -549,6 +614,7 @@ $output = $softmax->activate(1.0); // Context dependent
 ```
 
 **Characteristics:**
+
 - Range: (0, 1)
 - Application: Multi-class classification
 - Feature: Requires normalization across entire layer

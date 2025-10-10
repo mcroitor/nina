@@ -14,7 +14,7 @@ use mc\nina\exception\SerializationException;
  * Supports forward propagation, genetic algorithm training, and serialization.
  * 
  * @package mc\nina
- * @author NiNa Library
+ * @author Mihail Croitor
  * @version 0.2.0
  * @since 0.1.0
  */

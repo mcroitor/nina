@@ -16,7 +16,7 @@ use mc\nina\exception\SerializationException;
  * genetic algorithm operations like mutation.
  * 
  * @package mc\nina
- * @author NiNa Library
+ * @author Mihail Croitor
  * @version 0.2.0
  * @since 0.1.0
  */
