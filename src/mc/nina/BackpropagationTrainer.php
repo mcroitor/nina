@@ -367,12 +367,13 @@ class BackpropagationTrainer
                     throw NetworkException::invalidArchitecture("layer {$layerIndex} has no cells");
                 }
                 
-                // Adjust input size to match layer
+                // Ensure input size matches layer size
                 $expectedSize = $numCells;
-                if (count($currentInput) < $expectedSize) {
-                    $currentInput = array_pad($currentInput, $expectedSize, 0.0);
-                } elseif (count($currentInput) > $expectedSize) {
-                    $currentInput = array_slice($currentInput, 0, $expectedSize);
+                if (count($currentInput) !== $expectedSize) {
+                    throw NetworkException::incompatibleOperation(
+                        'layer forward pass',
+                        "Input size (" . count($currentInput) . ") does not match expected size ({$expectedSize}) for layer {$layerIndex}"
+                    );
                 }
                 
                 // Process each cell in the layer
