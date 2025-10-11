@@ -40,20 +40,19 @@ include_once __DIR__ . '/../../src/mc/nina/trainer.php';
 include_once __DIR__ . '/../../src/mc/nina/predictor.php';
 
 use mc\nina\Network;
-use mc\nina\Layer;
-use mc\nina\Cell;
 use mc\nina\Trainer;
 use mc\nina\Predictor;
-use mc\nina\activation\Sigmoid;
-use mc\nina\activation\ReLU;
-use mc\nina\activation\Tanh;
 
 echo "🎯 Распознавание буквы 'а' - Нейронная сеть 8x8\n";
 echo "================================================\n\n";
 
 // Конфигурация модели
+$NR_LAYERS = 3;             // Количество слоев в сети
 $LAYER_SIZE = 100;           // Размер каждого слоя в сети
-$TRAINING_ITERATIONS = 100;  // Количество итераций обучения
+$model_name = 'a_recognition';
+$model_file = "{$model_name}_model.json";
+$TRAINING_ITERATIONS = 1000;  // Количество итераций обучения
+$TRAINER_POPULATION = 200; // Размер популяции для генетического алгоритма
 
 /**
  * Расширяет входной массив до нужного размера добавлением нулей
@@ -68,101 +67,37 @@ function expandInputToLayerSize(array $input, int $targetSize): array
 }
 
 /**
- * Генерирует случайные веса для указанного количества входов
- */
-function generateRandomWeights(int $inputCount): array
-{
-    $weights = [];
-    for ($i = 0; $i < $inputCount; $i++) {
-        $weights[] = (mt_rand(-100, 100) / 100.0); // Веса от -1.0 до 1.0
-    }
-    return $weights;
-}
-
-/**
- * Создает слой с указанным количеством нейронов
- */
-function createLayer(string $layerName, int $neuronCount, int $inputSize, $activationFunction): Layer
-{
-    $cells = [];
-    for ($i = 0; $i < $neuronCount; $i++) {
-        $cellName = $layerName . "_neuron_" . ($i + 1);
-        $weights = generateRandomWeights($inputSize);
-        $cells[] = new Cell($cellName, $weights, $activationFunction);
-    }
-    return new Layer($layerName, $cells);
-}
-
-/**
  * Создает спрайт буквы "а" 8x8 (1 = пиксель, 0 = фон)
  */
 function createLetterA(): array
 {
     return [
-        0,
-        1,
-        1,
-        1,
-        1,
-        1,
-        0,
-        0,  // Верх буквы "а"
-        1,
-        1,
-        0,
-        0,
-        0,
-        1,
-        1,
-        0,  // Боковые стороны
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-        0,  // Внутренняя часть
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-        0,  // Внутренняя часть
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        0,  // Горизонтальная линия
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-        0,  // Ноги буквы
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-        0,  // Ноги буквы
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0   // Пустая строка
+        0,1,1,1,1,1,0,0,  // Верх буквы "а"
+        1,1,0,0,0,1,1,0,  // Боковые стороны
+        1,0,0,0,0,0,1,0,  // Внутренняя часть
+        1,0,0,0,0,0,1,0,  // Внутренняя часть
+        1,1,1,1,1,1,1,0,  // Горизонтальная линия
+        1,0,0,0,0,0,1,0,  // Ноги буквы
+        1,0,0,0,0,0,1,0,  // Ноги буквы
+        0,0,0,0,0,0,0,0   // Пустая строка
+    ];
+}
+
+/**
+ * Создает спрайт буквы "а" 8x8 (1 = пиксель, 0 = фон)
+ * Вариант 2 с небольшими изменениями
+ */
+function createLetterA2(): array
+{
+    return [
+        0,0,1,1,1,1,0,0,  // Верх буквы "а"
+        0,1,0,0,0,0,1,0,  // Боковые стороны
+        1,0,0,0,0,0,0,1,  // Внутренняя часть
+        1,0,0,0,0,0,0,1,  // Внутренняя часть
+        1,1,1,1,1,1,1,1,  // Горизонтальная линия
+        1,0,0,0,0,0,0,1,  // Ноги буквы
+        1,0,0,0,0,0,0,1,  // Ноги буквы
+        1,0,0,0,0,0,0,1   // Пустая строка
     ];
 }
 
@@ -184,70 +119,27 @@ function createRandomSprite(): array
 function createLetterB(): array
 {
     return [
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        0,
-        0,  // Верх буквы "b"
-        1,
-        0,
-        0,
-        0,
-        0,
-        1,
-        1,
-        0,  // Боковые стороны
-        1,
-        0,
-        0,
-        0,
-        0,
-        1,
-        1,
-        0,  // Внутренняя часть
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        0,
-        0,  // Средняя линия
-        1,
-        0,
-        0,
-        0,
-        0,
-        1,
-        1,
-        0,  // Нижняя часть
-        1,
-        0,
-        0,
-        0,
-        0,
-        1,
-        1,
-        0,  // Нижняя часть
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        0,
-        0,  // Низ буквы
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0   // Пустая строка
+        1,1,1,1,1,1,0,0,  // Верх буквы "b"
+        1,0,0,0,0,1,1,0,  // Боковые стороны
+        1,0,0,0,0,1,1,0,  // Внутренняя часть
+        1,1,1,1,1,1,0,0,  // Средняя линия
+        1,0,0,0,0,1,1,0,  // Нижняя часть
+        1,0,0,0,0,1,1,0,  // Нижняя часть
+        1,1,1,1,1,1,0,0,  // Низ буквы
+        0,0,0,0,0,0,0,0   // Пустая строка
+    ];
+}
+function createLetterB2(): array
+{
+    return [
+        1,1,1,1,1,1,1,0,  // Верх буквы "b"
+        1,1,0,0,0,0,1,1,  // Боковые стороны
+        1,1,0,0,0,0,1,1,  // Внутренняя часть
+        1,1,1,1,1,1,0,0,  // Средняя линия
+        1,1,0,0,0,0,1,1,  // Нижняя часть
+        1,1,0,0,0,0,1,1,  // Нижняя часть
+        1,1,0,0,0,0,1,1,  // Нижняя часть
+        1,1,1,1,1,1,1,0,  // Низ буквы
     ];
 }
 
@@ -270,11 +162,11 @@ function displaySprite(array $sprite, string $title = ""): void
 
 try {
     // Шаг 1: Загрузка или создание нейронной сети
-    $modelPath = __DIR__ . '/letter_a_recognition_model.json';
+    $modelPath = __DIR__ . '/' . $model_file;
 
     if (file_exists($modelPath)) {
         echo "Шаг 1: Загрузка существующей модели...\n";
-        echo "Найден файл модели: letter_a_recognition_model.json\n";
+        echo "Найден файл модели: $model_file\n";
 
         $modelJson = file_get_contents($modelPath);
         $network = Network::Load($modelJson);
@@ -292,20 +184,10 @@ try {
         // Входной размер = 64 (8x8 пикселей), но будет расширен до размера слоя
         $inputSize = 64;
 
-        // Создаем три слоя по $LAYER_SIZE нейронов каждый
-        // Важно: каждый слой принимает выход предыдущего слоя
-        $layer1 = createLayer("layer_1", $LAYER_SIZE, $LAYER_SIZE, new ReLU());      // $LAYER_SIZE входов -> $LAYER_SIZE выходов
-        $layer2 = createLayer("layer_2", $LAYER_SIZE, $LAYER_SIZE, new ReLU());      // $LAYER_SIZE входов -> $LAYER_SIZE выходов  
-        $layer3 = createLayer("layer_3", $LAYER_SIZE, $LAYER_SIZE, new Sigmoid());   // $LAYER_SIZE входов -> $LAYER_SIZE выходов
-
         // Создаем сеть (все слои имеют одинаковый размер)
-        $network = new Network("letter_recognition_net", [$layer1, $layer2, $layer3]);
+        $network = Network::Create($model_name, $NR_LAYERS, $LAYER_SIZE);
 
         echo "✓ Нейронная сеть создана:\n";
-        echo "  - Слой 1: $LAYER_SIZE нейронов (ReLU) - $LAYER_SIZE входов -> $LAYER_SIZE выходов\n";
-        echo "  - Слой 2: $LAYER_SIZE нейронов (ReLU) - $LAYER_SIZE входов -> $LAYER_SIZE выходов\n";
-        echo "  - Слой 3: $LAYER_SIZE нейронов (Sigmoid) - $LAYER_SIZE входов -> $LAYER_SIZE выходов\n";
-        echo "  Архитектура: $LAYER_SIZE->$LAYER_SIZE->$LAYER_SIZE->$LAYER_SIZE (полносвязная сеть)\n\n";
     }
 
     // Шаг 2: Подготовка обучающих данных
@@ -315,24 +197,31 @@ try {
     $letterA = createLetterA();
     displaySprite($letterA, "Буква 'а'");
 
+    $letterA2 = createLetterA2();
+    displaySprite($letterA2, "Буква 'а' (вариант 2)");
+
     // Создаем примеры других символов
     $letterB = createLetterB();
     displaySprite($letterB, "Буква 'b' (не 'а')");
+    $letterB2 = createLetterB2();
+    displaySprite($letterB2, "Буква 'b' (вариант 2)");
 
     $randomSprite = createRandomSprite();
     displaySprite($randomSprite, "Случайный спрайт (не 'а')");
 
     // Расширяем входные данные до размера слоя
     $letterA = expandInputToLayerSize($letterA, $LAYER_SIZE);
+    $letterA2 = expandInputToLayerSize($letterA2, $LAYER_SIZE);
     $letterB = expandInputToLayerSize($letterB, $LAYER_SIZE);
+    $letterB2 = expandInputToLayerSize($letterB2, $LAYER_SIZE);
     $randomSprite = expandInputToLayerSize($randomSprite, $LAYER_SIZE);
 
     echo "✓ Обучающие данные подготовлены и расширены до размера слоя ($LAYER_SIZE элементов)\n\n";
 
     // Шаг 3: Создание тренера
     echo "Шаг 3: Создание тренера с генетическим алгоритмом...\n";
-    $trainer = new Trainer($network, 200); // Популяция из 200 сетей
-    echo "✓ Тренер создан с популяцией: 200 сетей\n\n";
+    $trainer = new Trainer($network, $TRAINER_POPULATION);
+    echo "✓ Тренер создан с популяцией: {$TRAINER_POPULATION} сетей\n\n";
 
     // Шаг 4: Обучение на разных примерах
     echo "Шаг 4: Обучение сети...\n";
@@ -343,10 +232,20 @@ try {
     foreach($letterA as $pixel) {
         $letterAString .= chr($pixel * 255); // 0 -> chr(0), 1 -> chr(255)
     }
-    
+
+    $letterA2String = "";
+    foreach($letterA2 as $pixel) {
+        $letterA2String .= chr($pixel * 255);
+    }
+
     $letterBString = "";
     foreach($letterB as $pixel) {
         $letterBString .= chr($pixel * 255);
+    }
+
+    $letterB2String = "";
+    foreach($letterB2 as $pixel) {
+        $letterB2String .= chr($pixel * 255);
     }
     
     $randomString = "";
@@ -357,7 +256,8 @@ try {
     // Создаем ожидаемые результаты как строки символов размера $LAYER_SIZE
     // Для буквы "а" - символы с высоким ASCII (близко к 255)
     $expectedAString = str_repeat(chr(230), $LAYER_SIZE); // ~0.9 * 255 = 230
-    
+    $expectedA2String = str_repeat(chr(230), $LAYER_SIZE);
+
     // Для НЕ буквы "а" - символы с низким ASCII (близко к 0)
     $expectedNotAString = str_repeat(chr(25), $LAYER_SIZE); // ~0.1 * 255 = 25
 
@@ -368,8 +268,14 @@ try {
         echo "Обучение на букве 'а' (ожидаемый результат: все выходы ~0.9)...\n";
         $trainer->Train($letterAString, $expectedAString);
 
+        echo "Обучение на букве 'а' (вариант 2) (ожидаемый результат: все выходы ~0.9)...\n";
+        $trainer->Train($letterA2String, $expectedA2String);
+
         echo "Обучение на букве 'b' (ожидаемый результат: все выходы ~0.1)...\n";
         $trainer->Train($letterBString, $expectedNotAString);
+
+        echo "Обучение на букве 'b' (вариант 2) (ожидаемый результат: все выходы ~0.1)...\n";
+        $trainer->Train($letterB2String, $expectedNotAString);
 
         echo "Обучение на случайном спрайте (ожидаемый результат: все выходы ~0.1)...\n";
         $trainer->Train($randomString, $expectedNotAString);
@@ -394,6 +300,17 @@ try {
         ($predictionA > 0.5) ? "✓ Распознана как 'а'" : "✗ Не распознана"
     );
 
+    // Тестируем на букве "а" (вариант 2)
+    $resultA2 = $bestNetwork->Calculate($letterA2);
+    $predictionA2 = array_sum($resultA2) / count($resultA2);
+
+    echo sprintf(
+        "Тест буквы 'а' (вариант 2): %.3f (среднее из %d выходов) %s\n",
+        $predictionA2,
+        count($resultA2),
+        ($predictionA2 > 0.5) ? "✓ Распознана как 'а'" : "✗ Не распознана"
+    );
+
     // Тестируем на букве "b"  
     $resultB = $bestNetwork->Calculate($letterB);
     $predictionB = array_sum($resultB) / count($resultB);
@@ -402,6 +319,17 @@ try {
         "Тест буквы 'b': %.3f (среднее из %d выходов) %s\n",
         $predictionB,
         count($resultB),
+        ($predictionB < 0.5) ? "✓ Правильно отклонена" : "✗ Ложное срабатывание"
+    );
+
+    // Тестируем на букве "b" (вариант 2)
+    $resultB2 = $bestNetwork->Calculate($letterB2);
+    $predictionB2 = array_sum($resultB2) / count($resultB2);
+
+    echo sprintf(
+        "Тест буквы 'b' (вариант 2): %.3f (среднее из %d выходов) %s\n",
+        $predictionB2,
+        count($resultB2),
         ($predictionB < 0.5) ? "✓ Правильно отклонена" : "✗ Ложное срабатывание"
     );
 
@@ -423,12 +351,16 @@ try {
     $predictor = new Predictor($bestNetwork);
 
     $predStrA = $predictor->Predict($letterAString);
+    $predStrA2 = $predictor->Predict($letterA2String);
     $predStrB = $predictor->Predict($letterBString);
+    $predStrB2 = $predictor->Predict($letterB2String);
     $predStrRandom = $predictor->Predict($randomString);
 
     // Анализируем только первый символ результата как вероятность буквы 'а'
     $firstCharA = ord($predStrA[0]) / 255.0; // Нормализуем ASCII в диапазон [0,1]
+    $firstCharA2 = ord($predStrA2[0]) / 255.0;
     $firstCharB = ord($predStrB[0]) / 255.0;
+    $firstCharB2 = ord($predStrB2[0]) / 255.0;
     $firstCharRandom = ord($predStrRandom[0]) / 255.0;
 
     echo "Predictor результаты (анализ первого символа):\n";
@@ -439,9 +371,21 @@ try {
     );
 
     echo sprintf(
+        "  Буква 'а' (вариант 2): %.3f %s\n",
+        $firstCharA2,
+        ($firstCharA2 > 0.5) ? "✓ Распознана как 'а'" : "✗ Не распознана"
+    );
+
+    echo sprintf(
         "  Буква 'b': %.3f %s\n",
         $firstCharB,
         ($firstCharB < 0.5) ? "✓ Правильно отклонена" : "✗ Ложное срабатывание"
+    );
+
+    echo sprintf(
+        "  Буква 'b' (вариант 2): %.3f %s\n",
+        $firstCharB2,
+        ($firstCharB2 < 0.5) ? "✓ Правильно отклонена" : "✗ Ложное срабатывание"
     );
 
     echo sprintf(
@@ -452,14 +396,16 @@ try {
 
     echo "\nПолные строки результатов (для справки):\n";
     echo "  Буква 'а': " . substr($predStrA, 0, 20) . "...\n";
+    echo "  Буква 'а' (вариант 2): " . substr($predStrA2, 0, 20) . "...\n";
     echo "  Буква 'b': " . substr($predStrB, 0, 20) . "...\n";
+    echo "  Буква 'b' (вариант 2): " . substr($predStrB2, 0, 20) . "...\n";
     echo "  Случайный: " . substr($predStrRandom, 0, 20) . "...\n\n";
 
     // Шаг 7: Сохранение модели (только для новых моделей)
     echo "Шаг 7: Сохранение обученной модели...\n";
     $modelJson = $bestNetwork->Json();
     file_put_contents($modelPath, $modelJson);
-    echo "✓ Модель сохранена в 'letter_a_recognition_model.json'\n\n";
+    echo "✓ Модель сохранена в '$modelPath'\n\n";
 
     // Информация о сети
     echo "Информация о сети:\n";
