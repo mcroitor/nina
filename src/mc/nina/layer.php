@@ -2,6 +2,8 @@
 
 namespace mc\nina;
 
+use mc\nina\activation\ActivationFunction;
+use mc\nina\activation\Sigmoid;
 use mc\nina\exception\ValidationException;
 use mc\nina\exception\LayerException;
 use mc\nina\exception\SerializationException;
@@ -193,10 +195,13 @@ class Layer {
      * 
      * Creates a new layer with the specified number of cells, each initialized
      * with random weights and default activation functions. All cells will have
-     * the same number of weights equal to the layer size. Useful for creating
-     * standard layer architectures quickly.
+     * the same number of weights equal to the layer size. Default activation function
+     * is Sigmoid.
+     * 
+     * Useful for creating standard layer architectures quickly.
      * 
      * @param int $size Number of cells to create in the layer (must be positive)
+     * @param ActivationFunction $activationFunction Activation function to assign to each cell
      * 
      * @return Layer New layer with uniformly initialized cells
      * 
@@ -207,7 +212,7 @@ class Layer {
      * $layer = Layer::Create(5); // Creates layer with 5 cells, each having 5 weights
      * ```
      */
-    public static function Create(int $size): Layer {
+    public static function Create(int $size, ActivationFunction $activationFunction = new Sigmoid()): Layer {
         // Validate size
         if ($size <= 0) {
             throw LayerException::invalidSize($size, 'layer size must be positive');
@@ -216,7 +221,7 @@ class Layer {
         $name = \mc\uuid();
         $cells = [];
         for( $i = 0; $i < $size; $i++ ) {
-            $cells[] = new Cell(\mc\uuid(), \mc\array_create($size));
+            $cells[] = new Cell(\mc\uuid(), \mc\array_create($size), $activationFunction);
         }
         return new Layer($name, $cells);
     }
