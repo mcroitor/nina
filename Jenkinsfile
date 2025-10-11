@@ -1,7 +1,24 @@
 pipeline {
     agent any
 
+    parameters {
+        string(
+            name: 'BRANCH_NAME',
+            defaultValue: 'main',
+            description: 'Branch to build'
+        )
+    }
+
+    environment {
+        PHP_VERSION = '8.1'
+    }
+
     stages {
+        stage('Checkout') {
+            steps {
+                sh "git checkout ${params.BRANCH_NAME}"
+            }
+        }
         stage('Test') {
             steps {
                 dir('tests') {
