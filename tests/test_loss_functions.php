@@ -49,7 +49,7 @@ function test_mse_calculation(): bool {
     // Test case 2: Known calculation
     $predicted = [0.8, 0.3, 0.9];
     $target = [1.0, 0.0, 1.0];
-    $expected = ((0.8-1.0)**2 + (0.3-0.0)**2 + (0.9-1.0)**2) / 3; // = (0.04 + 0.09 + 0.01) / 3 = 0.04667
+    $expected = (pow(0.8-1.0, 2) + pow(0.3-0.0, 2) + pow(0.9-1.0, 2)) / 3; // = (0.04 + 0.09 + 0.01) / 3 = 0.04667
     $loss = $mse->calculate($predicted, $target);
     
     $result = $result && Assert::True(
