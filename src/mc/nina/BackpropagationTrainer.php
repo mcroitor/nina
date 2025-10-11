@@ -174,12 +174,6 @@ class BackpropagationTrainer
             );
         }
         
-        if ($learningRate > 1.0) {
-            throw ComputationException::invalidNumericalValue(
-                $learningRate,
-                'learning rate too large (should be ≤ 1.0)'
-            );
-        }
         
         $this->network = $network;
         $this->lossFunction = $lossFunction;
