@@ -206,7 +206,7 @@ class Network {
      * @param string $name Unique identifier for the network (must be non-empty)
      * @param int $nrLayers Number of layers to create (must be positive)
      * @param int $layerSize Number of neurons per layer (must be positive)
-     * @param ActivationFunction $activationFunction Function for all neurons (default: Sigmoid)
+     * @param ActivationFunction|null $activationFunction Function for all neurons (null = ReLU default)
      * 
      * @return Network New network with random initialization
      * 
@@ -215,17 +215,17 @@ class Network {
      * 
      * @example Creating standard architectures:
      * ```php
-     * // Small network for quick prototyping
+     * // Small network for quick prototyping (uses default ReLU)
      * $small = Network::Create("prototype", 2, 16);
      * 
-     * // Medium network for pattern recognition
-     * $medium = Network::Create("classifier", 3, 64, new ReLU());
+     * // Medium network for pattern recognition (explicit Sigmoid)
+     * $medium = Network::Create("classifier", 3, 64, new Sigmoid());
      * 
-     * // Large network for complex tasks
+     * // Large network for complex tasks (explicit Tanh)
      * $large = Network::Create("deep_net", 5, 128, new Tanh());
      * ```
      */
-    public static function Create(string $name, int $nrLayers, int $layerSize, ActivationFunction $activationFunction = new Sigmoid()): Network {
+    public static function Create(string $name, int $nrLayers, int $layerSize, ?ActivationFunction $activationFunction = null): Network {
         // Validate parameters
         if (empty(trim($name))) {
             throw ValidationException::invalidValue('name', $name, 'non-empty string');
