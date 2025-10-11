@@ -53,7 +53,7 @@ function test_sigmoid_derivative(): bool {
     foreach ($testValues as $x) {
         $analytical = $sigmoid->derivative($x);
         $numerical = numericalDerivative(
-            fn($val) => $sigmoid->activate($val), 
+            function($val) use ($sigmoid) { return $sigmoid->activate($val); }, 
             $x
         );
         
