@@ -6,7 +6,6 @@ use mc\nina\exception\ValidationException;
 use mc\nina\exception\NetworkException;
 use mc\nina\exception\SerializationException;
 use mc\nina\activation\ActivationFunction;
-use mc\nina\activation\Sigmoid;
 
 /**
  * Complete neural network composed of sequential layers.
@@ -206,7 +205,7 @@ class Network {
      * @param string $name Unique identifier for the network (must be non-empty)
      * @param int $nrLayers Number of layers to create (must be positive)
      * @param int $layerSize Number of neurons per layer (must be positive)
-     * @param ActivationFunction $activationFunction Function for all neurons (default: Sigmoid)
+     * @param ActivationFunction|null $activationFunction Function for all neurons (null = ReLU default)
      * 
      * @return Network New network with random initialization
      * 
@@ -215,17 +214,17 @@ class Network {
      * 
      * @example Creating standard architectures:
      * ```php
-     * // Small network for quick prototyping
+     * // Small network for quick prototyping (uses default ReLU)
      * $small = Network::Create("prototype", 2, 16);
      * 
-     * // Medium network for pattern recognition
-     * $medium = Network::Create("classifier", 3, 64, new ReLU());
+     * // Medium network for pattern recognition (explicit Sigmoid)
+     * $medium = Network::Create("classifier", 3, 64, new Sigmoid());
      * 
-     * // Large network for complex tasks
+     * // Large network for complex tasks (explicit Tanh)
      * $large = Network::Create("deep_net", 5, 128, new Tanh());
      * ```
      */
-    public static function Create(string $name, int $nrLayers, int $layerSize, ActivationFunction $activationFunction = new Sigmoid()): Network {
+    public static function Create(string $name, int $nrLayers, int $layerSize, ?ActivationFunction $activationFunction = null): Network {
         // Validate parameters
         if (empty(trim($name))) {
             throw ValidationException::invalidValue('name', $name, 'non-empty string');
@@ -524,11 +523,11 @@ class Network {
      * // Output might look like:
      * // Network: debug_net
      * // Layer: uuid-layer-1
-     * //   uuid-cell-1 (Sigmoid): 0.123 -0.456 0.789
-     * //   uuid-cell-2 (Sigmoid): -0.234 0.567 -0.890
-     * //   uuid-cell-3 (Sigmoid): 0.345 -0.678 0.901
+     * //   uuid-cell-1 (ReLU): 0.123 -0.456 0.789
+     * //   uuid-cell-2 (ReLU): -0.234 0.567 -0.890
+     * //   uuid-cell-3 (ReLU): 0.345 -0.678 0.901
      * // Layer: uuid-layer-2
-     * //   uuid-cell-4 (Sigmoid): 0.234 -0.567 0.890
+     * //   uuid-cell-4 (ReLU): 0.234 -0.567 0.890
      * //   ...
      * ```
      * 
