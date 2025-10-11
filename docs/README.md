@@ -9,6 +9,7 @@ Welcome to the NiNa Neural Network Library documentation. This library provides 
 - **[API Reference](api.md)** - Complete API documentation with examples
 - **[Architecture Guide](architecture.md)** - Detailed architecture and design patterns
 - **[Exception System](exceptions.md)** - Error handling and debugging guide
+- **[Genetic Algorithm](genetic_algorithm.md)** - Complete guide to evolutionary neural network training
 
 ### Language Versions
 

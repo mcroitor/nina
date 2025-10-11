@@ -422,6 +422,7 @@ $cell->Born(int $mutationPercent): Cell
 - **[API Reference](docs/api.md)** - Detailed API documentation with examples
 - **[Architecture Guide](docs/architecture.md)** - System design and patterns
 - **[Exception System](docs/exceptions.md)** - Comprehensive guide to error handling
+- **[Genetic Algorithm](docs/genetic_algorithm.md)** - Complete guide to evolutionary neural network training
 - **[Russian Documentation](docs/ru/)** - Русскоязычная документация
 - **[Test Suite](tests/)** - Examples and test cases
 - **[Source Code](src/)** - Implementation details
