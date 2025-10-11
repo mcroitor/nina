@@ -107,7 +107,8 @@ public function Train(string $input, string $expected): void {
     
     // Создание новой популяции от лучшей сети
     $this->networks = [];
-    for ($i = 0; $i < count($this->networks); ++$i) {
+    // Предполагается, что размер популяции хранится в $this->population_size
+    for ($i = 0; $i < $this->population_size; ++$i) {
         $this->networks[] = $this->best_network->Born(10); // 10% мутации
     }
 }
