@@ -6,7 +6,6 @@ use mc\nina\exception\ValidationException;
 use mc\nina\exception\NetworkException;
 use mc\nina\exception\SerializationException;
 use mc\nina\activation\ActivationFunction;
-use mc\nina\activation\Sigmoid;
 
 /**
  * Complete neural network composed of sequential layers.
@@ -524,11 +523,11 @@ class Network {
      * // Output might look like:
      * // Network: debug_net
      * // Layer: uuid-layer-1
-     * //   uuid-cell-1 (Sigmoid): 0.123 -0.456 0.789
-     * //   uuid-cell-2 (Sigmoid): -0.234 0.567 -0.890
-     * //   uuid-cell-3 (Sigmoid): 0.345 -0.678 0.901
+     * //   uuid-cell-1 (ReLU): 0.123 -0.456 0.789
+     * //   uuid-cell-2 (ReLU): -0.234 0.567 -0.890
+     * //   uuid-cell-3 (ReLU): 0.345 -0.678 0.901
      * // Layer: uuid-layer-2
-     * //   uuid-cell-4 (Sigmoid): 0.234 -0.567 0.890
+     * //   uuid-cell-4 (ReLU): 0.234 -0.567 0.890
      * //   ...
      * ```
      * 

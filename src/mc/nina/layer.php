@@ -3,7 +3,6 @@
 namespace mc\nina;
 
 use mc\nina\activation\ActivationFunction;
-use mc\nina\activation\Sigmoid;
 use mc\nina\exception\ValidationException;
 use mc\nina\exception\LayerException;
 use mc\nina\exception\SerializationException;
