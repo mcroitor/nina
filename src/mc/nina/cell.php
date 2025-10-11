@@ -7,6 +7,7 @@ use mc\nina\activation\ReLU;
 use mc\nina\exception\ValidationException;
 use mc\nina\exception\ComputationException;
 use mc\nina\exception\SerializationException;
+use mc\nina\exception\NetworkException;
 
 /**
  * Neural cell (neuron) implementation with weights, activation function and forward propagation.
@@ -39,6 +40,24 @@ class Cell
      * @var ActivationFunction
      */
     private ActivationFunction $activationFunction;
+
+    /**
+     * Cached weighted sum from last forward pass (needed for backpropagation)
+     * @var float|null
+     */
+    private ?float $lastWeightedSum = null;
+    
+    /**
+     * Cached activation output from last forward pass (needed for backpropagation)
+     * @var float|null
+     */
+    private ?float $lastActivation = null;
+    
+    /**
+     * Cached input values from last forward pass (needed for weight gradients)
+     * @var array<float>|null
+     */
+    private ?array $lastInputs = null;
 
     /**
      * Constructs a new neural cell with specified weights and activation function.
@@ -535,6 +554,241 @@ class Cell
             default:
                 return new \mc\nina\activation\ReLU(); // Default fallback
         }
+    }
+
+    /**
+     * Calculate cell output and cache intermediate values for backpropagation.
+     * 
+     * Enhanced version of Calculate() that stores intermediate results needed
+     * for the backward pass in backpropagation algorithm.
+     * 
+     * @param array<float> $values Input values to multiply with weights
+     * 
+     * @return float Activated output of the cell
+     * 
+     * @throws ValidationException When input array is invalid
+     * @throws ComputationException When computation fails
+     * 
+     * @example
+     * ```php
+     * $cell = new Cell("neuron", [0.5, -0.3], new Sigmoid());
+     * $output = $cell->ForwardPass([1.0, 0.5]); // Computes and caches for backprop
+     * ```
+     */
+    public function ForwardPass(array $values): float
+    {
+        // Store inputs for gradient calculation
+        $this->lastInputs = $values;
+        
+        // Calculate raw weighted sum 
+        $this->lastWeightedSum = $this->CalculateRaw($values);
+        
+        // Apply activation function and cache result
+        $this->lastActivation = $this->activationFunction->activate($this->lastWeightedSum);
+        
+        return $this->lastActivation;
+    }
+
+    /**
+     * Get the cached weighted sum from the last forward pass.
+     * 
+     * Returns the weighted sum (before activation) that was computed during
+     * the last call to ForwardPass(). This is needed for backpropagation.
+     * 
+     * @return float The cached weighted sum
+     * 
+     * @throws ComputationException When no forward pass has been performed
+     * 
+     * @example
+     * ```php
+     * $cell->ForwardPass([1.0, 0.5]);
+     * $weightedSum = $cell->getLastWeightedSum(); // Gets cached value
+     * ```
+     */
+    public function getLastWeightedSum(): float
+    {
+        if ($this->lastWeightedSum === null) {
+            throw NetworkException::incompatibleOperation(
+                'getLastWeightedSum',
+                'No forward pass has been performed. Call ForwardPass() first.'
+            );
+        }
+        
+        return $this->lastWeightedSum;
+    }
+
+    /**
+     * Get the cached activation output from the last forward pass.
+     * 
+     * Returns the activation output that was computed during the last call
+     * to ForwardPass(). This is needed for some backpropagation computations.
+     * 
+     * @return float The cached activation output
+     * 
+     * @throws ComputationException When no forward pass has been performed
+     * 
+     * @example
+     * ```php
+     * $cell->ForwardPass([1.0, 0.5]);
+     * $activation = $cell->getLastActivation(); // Gets cached value
+     * ```
+     */
+    public function getLastActivation(): float
+    {
+        if ($this->lastActivation === null) {
+            throw NetworkException::incompatibleOperation(
+                'getLastActivation',
+                'No forward pass has been performed. Call ForwardPass() first.'
+            );
+        }
+        
+        return $this->lastActivation;
+    }
+
+    /**
+     * Get the cached input values from the last forward pass.
+     * 
+     * Returns the input values that were used during the last call to ForwardPass().
+     * This is needed for calculating weight gradients during backpropagation.
+     * 
+     * @return array<float> The cached input values
+     * 
+     * @throws ComputationException When no forward pass has been performed
+     * 
+     * @example
+     * ```php
+     * $cell->ForwardPass([1.0, 0.5]);
+     * $inputs = $cell->getLastInputs(); // Gets [1.0, 0.5]
+     * ```
+     */
+    public function getLastInputs(): array
+    {
+        if ($this->lastInputs === null) {
+            throw NetworkException::incompatibleOperation(
+                'getLastInputs',
+                'No forward pass has been performed. Call ForwardPass() first.'
+            );
+        }
+        
+        return $this->lastInputs;
+    }
+
+    /**
+     * Calculate the derivative of the activation function at the last weighted sum.
+     * 
+     * Computes the derivative of the activation function at the weighted sum
+     * from the last forward pass. This is a key component in backpropagation.
+     * 
+     * @return float The activation function derivative
+     * 
+     * @throws ComputationException When no forward pass has been performed
+     * 
+     * @example
+     * ```php
+     * $cell->ForwardPass([1.0, 0.5]);
+     * $derivative = $cell->getActivationDerivative(); // f'(weighted_sum)
+     * ```
+     */
+    public function getActivationDerivative(): float
+    {
+        if ($this->lastWeightedSum === null) {
+            throw NetworkException::incompatibleOperation(
+                'getActivationDerivative',
+                'No forward pass has been performed. Call ForwardPass() first.'
+            );
+        }
+        
+        return $this->activationFunction->derivative($this->lastWeightedSum);
+    }
+
+    /**
+     * Update weights using calculated gradients.
+     * 
+     * Applies weight updates based on gradients computed during backpropagation.
+     * Updates are applied using the formula: weight[i] = weight[i] - learning_rate * gradient[i]
+     * 
+     * @param array<float> $gradients Array of gradients for each weight (must match DNA size)
+     * @param float $learningRate Learning rate for weight updates (typically 0.001 to 0.1)
+     * 
+     * @throws ValidationException When gradients array size doesn't match DNA size
+     * @throws ComputationException When learning rate or gradients are invalid
+     * 
+     * @example
+     * ```php
+     * $cell = new Cell("neuron", [0.5, -0.3]);
+     * $gradients = [0.01, -0.02]; // Computed by backpropagation
+     * $cell->updateWeights($gradients, 0.01); // Apply updates
+     * ```
+     */
+    public function updateWeights(array $gradients, float $learningRate): void
+    {
+        // Validate learning rate
+        if (!is_finite($learningRate) || $learningRate <= 0) {
+            throw ComputationException::invalidNumericalValue(
+                $learningRate,
+                'learning rate (must be positive and finite)'
+            );
+        }
+        
+        // Validate gradients array size
+        if (count($gradients) !== count($this->dna)) {
+            throw ValidationException::invalidArraySize(
+                'gradients',
+                count($gradients),
+                count($this->dna)
+            );
+        }
+        
+        // Validate gradient values and apply updates
+        for ($i = 0; $i < count($this->dna); $i++) {
+            if (!is_numeric($gradients[$i])) {
+                throw ValidationException::invalidValue(
+                    "gradients[{$i}]",
+                    $gradients[$i],
+                    'numeric',
+                    "got " . gettype($gradients[$i])
+                );
+            }
+            
+            $gradient = (float)$gradients[$i];
+            
+            if (!is_finite($gradient)) {
+                throw ComputationException::invalidNumericalValue(
+                    $gradient,
+                    "gradient at index {$i}"
+                );
+            }
+            
+            // Apply weight update: w = w - learning_rate * gradient
+            $this->dna[$i] -= $learningRate * $gradient;
+            
+            // Validate updated weight
+            if (!is_finite($this->dna[$i])) {
+                throw ComputationException::invalidNumericalValue(
+                    $this->dna[$i],
+                    "updated weight at index {$i}"
+                );
+            }
+        }
+    }
+
+    /**
+     * Clear cached forward pass data.
+     * 
+     * Clears all cached intermediate values from forward pass.
+     * This can be useful for memory management or debugging.
+     * 
+     * @example
+     * ```php
+     * $cell->ForwardPass([1.0, 0.5]);
+     * $cell->clearCache(); // Clears all cached values
+     * ```
+     */
+    public function clearCache(): void
+    {
+        $this->lastWeightedSum = null;
+        $this->lastActivation = null;
+        $this->lastInputs = null;
     }
 
     /**
