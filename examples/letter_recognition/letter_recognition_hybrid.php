@@ -37,44 +37,43 @@ try {
     
     // Подготовка данных
     $trainingData = prepareTrainingDataFromConfig($config);
+    printConfigInfo($config, $trainingData);
     
     // === ЭТАП 1: ГЕНЕТИЧЕСКИЙ АЛГОРИТМ ===
     echo "🧬 ЭТАП 1: Генетический алгоритм\n";
     echo "================================\n";
     echo "Поиск перспективной области весового пространства...\n\n";
     
-    $gaTrainer = new Trainer($network, $hybrid['ga_population'], $hybrid['ga_mutation_rate']);
+    $gaMutationRate = normalizeMutationRate($hybrid['ga_mutation_rate']);
+    $gaTrainer = new Trainer($network, $hybrid['ga_population'], $gaMutationRate);
     
     echo "✅ Параметры GA этапа:\n";
     echo "  👥 Популяция: {$hybrid['ga_population']} особей\n";
-    echo "  🎲 Мутация: " . ($hybrid['ga_mutation_rate'] * 100) . "%\n";
+    echo "  🎲 Мутация: {$gaMutationRate}%\n";
     echo "  🏁 Поколений: {$hybrid['ga_generations']}\n";
     echo "  🎯 Целевая приспособленность: " . ($hybrid['ga_target_fitness'] * 100) . "%\n\n";
     
     // Обучение генетическим алгоритмом
     $gaIteration = 0;
-    $bestFitness = 0;
+    $bestFitness = calculateAccuracy($network, $trainingData, $model['output']['threshold']);
+    $bestGaNetwork = $network;
     
     for ($i = 0; $i < $hybrid['ga_generations']; $i++) {
-        foreach ($trainingData as $sample) {
-            $expectedOutput = array_fill(0, $model['architecture']['layer_size'], 
-                $sample['label'] === 'a' ? $model['output']['target_positive'] : $model['output']['target_negative']
-            );
-            
-            $gaTrainer->Train($sample['input'], $expectedOutput);
-        }
+        $gaTrainer->TrainBatch($trainingData);
         
-        $currentFitness = calculateAccuracy($gaTrainer->GetBestNetwork(), $trainingData, $model['output']['threshold']);
+        $currentNetwork = $gaTrainer->getBestNetwork();
+        $currentFitness = calculateAccuracy($currentNetwork, $trainingData, $model['output']['threshold']);
         
-        if ($currentFitness > $bestFitness) {
+        if ($currentFitness >= $bestFitness) {
             $bestFitness = $currentFitness;
+            $bestGaNetwork = $currentNetwork;
         }
         
-        if ($i % 10 === 0 || $currentFitness >= $hybrid['ga_target_fitness']) {
-            echo "Поколение " . ($i + 1) . ": Лучшая точность = " . round($currentFitness * 100, 1) . "%\n";
+        if ($i % 10 === 0 || $bestFitness >= $hybrid['ga_target_fitness']) {
+            echo "Поколение " . ($i + 1) . ": Лучшая точность = " . round($bestFitness * 100, 1) . "%\n";
         }
         
-        if ($currentFitness >= $hybrid['ga_target_fitness']) {
+        if ($bestFitness >= $hybrid['ga_target_fitness']) {
             $gaIteration = $i + 1;
             echo "🎯 Целевая приспособленность достигнута на поколении $gaIteration!\n";
             break;
@@ -83,7 +82,7 @@ try {
         $gaIteration = $i + 1;
     }
     
-    $gaNetwork = $gaTrainer->GetBestNetwork();
+    $gaNetwork = $bestGaNetwork;
     $gaAccuracy = calculateAccuracy($gaNetwork, $trainingData, $model['output']['threshold']);
     $gaTime = microtime(true) - $startTime;
     
@@ -99,7 +98,12 @@ try {
     
     $bpStartTime = microtime(true);
     $lossFunction = new MeanSquaredError();
-    $bpTrainer = new BackpropagationTrainer($gaNetwork, $lossFunction, $hybrid['bp_learning_rate']);
+    $bpTrainer = new BackpropagationTrainer(
+        $gaNetwork,
+        $lossFunction,
+        $hybrid['bp_learning_rate'],
+        new \mc\nina\optimizer\Adam()
+    );
     
     echo "✅ Параметры BP этапа:\n";
     echo "  📊 Функция потерь: Mean Squared Error\n";
@@ -108,7 +112,8 @@ try {
     echo "  🔄 Макс. эпох: {$hybrid['bp_max_epochs']}\n\n";
     
     // Обучение backpropagation
-    $epochLosses = $bpTrainer->trainBatch($trainingData, $hybrid['bp_max_epochs'], $hybrid['bp_target_loss']);
+    $backpropData = prepareBackpropData($trainingData, $model['architecture']['layer_size']);
+    $epochLosses = $bpTrainer->trainBatch($backpropData, $hybrid['bp_max_epochs'], $hybrid['bp_target_loss']);
     
     $bpTime = microtime(true) - $bpStartTime;
     $totalEpochs = count($epochLosses);
@@ -127,12 +132,14 @@ try {
     
     // Результаты обучения
     $trainingResults = [
+        'generations' => $gaIteration,
+        'epochs' => $totalEpochs,
         'ga_generations' => $gaIteration,
         'bp_epochs' => $totalEpochs,
         'ga_accuracy' => $gaAccuracy,
         'final_accuracy' => $finalAccuracy,
         'final_loss' => $finalLoss,
-        'improvement' => ($finalAccuracy - $gaAccuracy) * 100,
+        'improvement' => $finalAccuracy - $gaAccuracy,
         'training_time' => $trainingTime,
         'ga_time' => $gaTime,
         'bp_time' => $bpTime
@@ -167,9 +174,9 @@ try {
     echo "  🎯 Финальная точность: " . round($finalAccuracy * 100, 1) . "%\n";
     echo "  ⏱️ Общее время: " . round($trainingTime, 1) . " сек\n";
     echo "  💡 Эффективность гибрида: " . 
-        ($finalAccuracy > $gaAccuracy ? "УСПЕШНО" : "НЕОБХОДИМА НАСТРОЙКА") . "\n";
+        ($finalAccuracy >= $gaAccuracy ? "УСПЕШНО" : "НЕОБХОДИМА НАСТРОЙКА") . "\n";
 
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     echo "❌ Ошибка: " . $e->getMessage() . "\n";
     echo "Класс: " . get_class($e) . "\n";
     echo "Файл: " . $e->getFile() . ":" . $e->getLine() . "\n";

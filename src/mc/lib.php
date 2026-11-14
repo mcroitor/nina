@@ -34,11 +34,22 @@ function uuid(
     string $chars = "0123456789abcdef",
     string $format = "xxxx-xxxx-xxxx-xxxx"
 ): string {
+    if ($chars === "0123456789abcdef" && $format === "xxxx-xxxx-xxxx-xxxx") {
+        return sprintf(
+            '%04x-%04x-%04x-%04x',
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff)
+        );
+    }
     $result = "";
+    $charsLen = strlen($chars) - 1;
+    $formatLen = strlen($format);
 
-    for ($i = 0; $i < strlen($format); $i++) {
+    for ($i = 0; $i < $formatLen; $i++) {
         if ($format[$i] == "x") {
-            $result .= $chars[rand(0, strlen($chars) - 1)];
+            $result .= $chars[mt_rand(0, $charsLen)];
         } else {
             $result .= $format[$i];
         }
@@ -64,24 +75,26 @@ function uuid(
  * ```
  */
 function mutate(float $value, int $precision = 0): float {
-    $rand = random_int(0, 100);
+    $rand = mt_rand(0, 100);
     if($rand < $precision) {
-        $value += 0.001 * rand(-100, 100);
+        $value += 0.005 * mt_rand(-100, 100);
     }
-    $value = limit($value);
+    $value = limit($value, -1., 1.);
     return $value;
 }
 
 /**
- * Limits a number to the range [0, 1]
+ * Limits a number to the specified range (default [0, 1])
  * 
- * If the number is less than 0, returns 0.
- * If the number is greater than 1, returns 1.
+ * If the number is less than $min, returns $min.
+ * If the number is greater than $max, returns $max.
  * Otherwise returns the original number.
  * 
  * @param float $number Number to limit
+ * @param float $min Minimum allowed value (default 0.0)
+ * @param float $max Maximum allowed value (default 1.0)
  * 
- * @return float Limited number in range [0, 1]
+ * @return float Limited number in range [$min, $max]
  * 
  * @example
  * ```php
@@ -90,13 +103,13 @@ function mutate(float $value, int $precision = 0): float {
  * $limited = limit(0.7);  // 0.7
  * ```
  */
-function limit(float $number): float
+function limit(float $number, float $min = 0., float $max = 1.): float
 {
-    if ($number < 0) {
-        return 0.;
+    if ($number < $min) {
+        return $min;
     }
-    if ($number > 1) {
-        return 1.;
+    if ($number > $max) {
+        return $max;
     }
     return $number;
 }
@@ -195,7 +208,7 @@ function char2float(string $char): float {
  * ```
  */
 function float2char(float $value): string {
-    return chr(intval($value * 255));
+    return chr(intval(limit($value) * 255));
 }
 
 /**

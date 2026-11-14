@@ -37,6 +37,7 @@ try {
     
     // Подготовка данных
     $trainingData = prepareTrainingDataFromConfig($config);
+    printConfigInfo($config, $trainingData);
     
     // Инициализация многокритериальной популяции
     echo "🎯 Настройка многокритериальной оптимизации:\n";
@@ -45,6 +46,7 @@ try {
     $populations = [];
     $bestNetworks = [];
     $objectives = [];
+    $mutationRate = normalizeMutationRate($multiobjective['mutation_rate']);
     
     // Создаем отдельные популяции для разных целей
     $objectiveNames = ['accuracy', 'robustness', 'simplicity'];
@@ -53,7 +55,7 @@ try {
         $populations[$objective] = new Trainer(
             createOrLoadNetwork($config, "temp_$objective.json"), 
             $multiobjective['population_per_objective'], 
-            $multiobjective['mutation_rate']
+            $mutationRate
         );
         $objectives[$objective] = [
             'fitness' => 0,
@@ -63,7 +65,7 @@ try {
     
     echo "✅ Параметры многокритериальной оптимизации:\n";
     echo "  👥 Популяция на цель: {$multiobjective['population_per_objective']} особей\n";
-    echo "  🎲 Мутация: " . ($multiobjective['mutation_rate'] * 100) . "%\n";
+    echo "  🎲 Мутация: {$mutationRate}%\n";
     echo "  🏁 Поколений: {$multiobjective['generations']}\n";
     echo "  ⚖️ Веса целей:\n";
     foreach ($multiobjective['objective_weights'] as $obj => $weight) {
@@ -83,17 +85,10 @@ try {
         // Обучение каждой популяции с фокусом на свою цель
         foreach ($objectiveNames as $objective) {
             $trainer = $populations[$objective];
-            
-            foreach ($trainingData as $sample) {
-                $expectedOutput = array_fill(0, $model['architecture']['layer_size'], 
-                    $sample['label'] === 'a' ? $model['output']['target_positive'] : $model['output']['target_negative']
-                );
-                
-                $trainer->Train($sample['input'], $expectedOutput);
-            }
+            $trainer->TrainBatch($trainingData);
             
             // Вычисление фитнеса для данной цели
-            $currentNetwork = $trainer->GetBestNetwork();
+            $currentNetwork = $trainer->getBestNetwork();
             
             switch ($objective) {
                 case 'accuracy':
@@ -127,7 +122,7 @@ try {
         }
         
         // Выбор лучшей сети среди всех целей
-        $bestOverallFitness = 0;
+        $bestOverallFitness = -1;
         $bestOverallNetwork = null;
         
         foreach ($objectiveNames as $objective) {
@@ -183,11 +178,13 @@ try {
         $finalTrainer = new BackpropagationTrainer(
             $bestFinalNetwork, 
             $lossFunction, 
-            $multiobjective['final_bp_learning_rate']
+            $multiobjective['final_bp_learning_rate'],
+            new \mc\nina\optimizer\Adam()
         );
         
+        $backpropData = prepareBackpropData($trainingData, $model['architecture']['layer_size']);
         $epochLosses = $finalTrainer->trainBatch(
-            $trainingData, 
+            $backpropData, 
             $multiobjective['final_bp_epochs'], 
             0.01
         );
@@ -204,10 +201,15 @@ try {
     $finalAccuracy = calculateAccuracy($bestFinalNetwork, $trainingData, $model['output']['threshold']);
     $finalRobustness = calculateAccuracy($bestFinalNetwork, addNoiseToDataset($trainingData, 0.1), $model['output']['threshold']);
     $finalComplexity = calculateNetworkComplexity($bestFinalNetwork);
+    $finalCombinedFitness = 
+        $multiobjective['objective_weights']['accuracy'] * $finalAccuracy +
+        $multiobjective['objective_weights']['robustness'] * $finalRobustness +
+        $multiobjective['objective_weights']['simplicity'] * ($finalAccuracy * (1 - $finalComplexity));
     
     // Результаты обучения
     $trainingResults = [
         'generations' => count($generationResults),
+        'epochs' => $multiobjective['final_bp_epochs'] ?? 0,
         'final_accuracy' => $finalAccuracy,
         'final_robustness' => $finalRobustness,
         'final_complexity' => $finalComplexity,
@@ -247,7 +249,7 @@ try {
     echo "  💡 Баланс целей: " . 
         (($finalAccuracy > 0.8 && $finalRobustness > 0.7) ? "ДОСТИГНУТ" : "ТРЕБУЕТ НАСТРОЙКИ") . "\n";
 
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     echo "❌ Ошибка: " . $e->getMessage() . "\n";
     echo "Класс: " . get_class($e) . "\n";
     echo "Файл: " . $e->getFile() . ":" . $e->getLine() . "\n";
@@ -267,6 +269,7 @@ function addNoiseToDataset(array $dataset, float $noiseLevel): array
         $noisyDataset[] = [
             'input' => $noisyInput,
             'target' => $sample['target'],
+            'expected' => $sample['expected'],
             'label' => $sample['label']
         ];
     }
@@ -275,12 +278,25 @@ function addNoiseToDataset(array $dataset, float $noiseLevel): array
 
 function calculateNetworkComplexity(Network $network): float
 {
-    // Простая метрика сложности - можно улучшить
-    // Для демонстрации возвращаем значение на основе размера сети
+    // Оцениваем среднюю абсолютную величину весов сети в диапазоне [0, 1]
     $layers = $network->GetNrLayers();
-    $layerSize = $network->GetLayerSize();
-    
-    // Нормализуем сложность в диапазон [0, 1]
-    $baseComplexity = ($layers * $layerSize) / 1000; // Базовая нормализация
-    return min(1.0, $baseComplexity);
+    $totalWeightMagnitude = 0.0;
+    $totalWeights = 0;
+
+    for ($l = 0; $l < $layers; $l++) {
+        $layer = $network->GetLayer($l);
+        for ($c = 0; $c < $layer->GetSize(); $c++) {
+            $dna = $layer->GetCell($c)->GetDna();
+            foreach ($dna as $w) {
+                $totalWeightMagnitude += abs($w);
+                $totalWeights++;
+            }
+        }
+    }
+
+    if ($totalWeights === 0) {
+        return 0.0;
+    }
+
+    return min(1.0, $totalWeightMagnitude / $totalWeights);
 }

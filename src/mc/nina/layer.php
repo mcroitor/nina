@@ -302,7 +302,7 @@ class Layer {
             }
             
             try {
-                $cells[] = new Cell($cellData["name"], $cellData["dna"]);
+                $cells[] = Cell::Load(json_encode($cellData));
             } catch (\Exception $e) {
                 throw SerializationException::corruptedData(
                     'cell data',
@@ -341,7 +341,8 @@ class Layer {
         foreach ($this->cells as $cell) {
             $data["cells"][] = [
                 "name"=> $cell->GetName(),
-                "dna" => $cell->GetDna()
+                "dna" => $cell->GetDna(),
+                "activation" => $cell->GetActivationFunction()->getName()
             ];
         }
         

@@ -59,6 +59,7 @@ $coreFiles = [
     '/mc/nina/exception/SerializationException.php',
     '/mc/nina/exception/NetworkException.php',
     '/mc/nina/exception/LayerException.php',
+    '/mc/nina/exception/TrainingException.php',
 
     // Core classes
     '/mc/nina/cell.php',
@@ -97,8 +98,8 @@ $coreFiles = [
     '/mc/nina/initializer/HeInitializer.php',
 
     // Training algorithms
-    '/mc/nina/trainer/Population.php',
-    '/mc/nina/trainer/Trainer.php',
+    '/mc/nina/predictor.php',
+    '/mc/nina/trainer.php',
     '/mc/nina/BackpropagationTrainer.php',
 ];
 

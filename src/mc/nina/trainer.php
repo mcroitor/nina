@@ -51,7 +51,7 @@ class Trainer
      * $trainer = new Trainer($network, 50); // Creates population of 50 networks
      * ```
      */
-    public function __construct(Network $network, int $pull, int $mutationRate = 10)
+    public function __construct(Network $network, int $pull, int|float $mutationRate = 10)
     {
         // Validate network
         if (!($network instanceof Network)) {
@@ -72,7 +72,12 @@ class Trainer
             throw TrainingException::invalidParameters('pull', $pull, 'too large (max 1000)');
         }
         
-        $this->mutationRate = $mutationRate;
+        if (is_float($mutationRate) && $mutationRate > 0.0 && $mutationRate < 1.0) {
+            $normalizedRate = (int)round($mutationRate * 100);
+        } else {
+            $normalizedRate = (int)round($mutationRate);
+        }
+        $this->mutationRate = max(0, min(100, $normalizedRate));
         $this->best_network = $network;
         for ($i = 0; $i < $pull; ++$i) {
             $this->networks[] = $network->Born($this->mutationRate);
@@ -139,15 +144,22 @@ class Trainer
      * @throws ComputationException If computation result is invalid
      * @throws TrainingException If testing failed
      */
-    private static function Test(Network $network, string $input, string $expected): float
+    private static function Test(Network $network, string|array $input, string|array $expected): float
     {
         try {
-            $predictor = new Predictor($network);
-            $calculated = $predictor->Predict($input);
-            $result = euclidean_distance(
-                $calculated,
-                $expected
-            );
+            if (is_array($input) && is_array($expected)) {
+                $calculated = $network->Calculate($input);
+                $result = euclidean_distance($calculated, $expected);
+            } else {
+                $inputStr = is_array($input) ? \mc\array2string($input) : $input;
+                $expectedStr = is_array($expected) ? \mc\array2string($expected) : $expected;
+                $predictor = new Predictor($network);
+                $calculated = $predictor->Predict($inputStr);
+                $result = euclidean_distance(
+                    $calculated,
+                    $expectedStr
+                );
+            }
             
             if (!is_finite($result)) {
                 throw ComputationException::invalidNumericalValue(
@@ -157,7 +169,7 @@ class Trainer
             }
 
             if (defined('__DEBUG__') && __DEBUG__) {
-                echo "[DEBUG] Input: {$input}, Expected: {$expected}, Predicted: {$calculated}, Distance: {$result}\n";
+                echo "[DEBUG] Distance: {$result}\n";
             }
             
             return $result;
@@ -176,8 +188,8 @@ class Trainer
      * Then creates a new population based on the best network with mutations.
      * The process repeats for evolutionary performance improvement.
      * 
-     * @param string $input Input data for training
-     * @param string $expected Expected result
+     * @param string|array $input Input data for training
+     * @param string|array $expected Expected result
      * 
      * @throws TrainingException If input data is invalid or training failed
      * 
@@ -189,15 +201,15 @@ class Trainer
      * $bestNetwork = $trainer->getBestNetwork();
      * ```
      */
-    public function Train(string $input, string $expected): void
+    public function Train(string|array $input, string|array $expected): void
     {
         // Validate inputs
         if (empty($input)) {
-            throw TrainingException::invalidTrainingData('input string cannot be empty');
+            throw TrainingException::invalidTrainingData('input cannot be empty');
         }
         
         if (empty($expected)) {
-            throw TrainingException::invalidTrainingData('expected string cannot be empty');
+            throw TrainingException::invalidTrainingData('expected cannot be empty');
         }
         
         try {
@@ -234,6 +246,79 @@ class Trainer
                 "Training failed: " . $e->getMessage(),
                 ['input' => $input, 'expected' => $expected]
             );
+        }
+    }
+
+    /**
+     * Trains the population of networks on a batch of samples in a single generation.
+     *
+     * Evaluates each network across all samples in the batch, selects the network
+     * with the lowest total distance, and spawns the next generation once.
+     *
+     * @param array $samples Array of samples (either ['input' => ..., 'target' => ...] or [$input, $expected])
+     * @throws TrainingException If batch data is empty or invalid
+     */
+    public function TrainBatch(array $samples): void
+    {
+        if (empty($samples)) {
+            throw TrainingException::invalidTrainingData('training batch cannot be empty');
+        }
+
+        $pairs = [];
+        foreach ($samples as $index => $sample) {
+            if (isset($sample['input']) && isset($sample['target'])) {
+                $pairs[] = [$sample['input'], $sample['target']];
+            } elseif (isset($sample[0]) && isset($sample[1])) {
+                $pairs[] = [$sample[0], $sample[1]];
+            } else {
+                throw TrainingException::invalidTrainingData("Invalid sample format at index {$index}");
+            }
+        }
+
+        // Select a representative evaluation subset when the batch is large for fast screening
+        $screeningPairs = $pairs;
+        if (count($pairs) > 8) {
+            $screeningPairs = array_slice($pairs, 0, 8);
+        }
+
+        $evaluateSubset = function (Network $net, array $evalPairs): float {
+            $totalScore = 0.0;
+            foreach ($evalPairs as [$in, $exp]) {
+                $totalScore += self::Test($net, $in, $exp);
+            }
+            return $totalScore / count($evalPairs);
+        };
+
+        // Include a memetic (guided variation) candidate in the population if inputs are numeric arrays
+        if (!empty($this->networks) && is_array($pairs[0][0]) && is_array($pairs[0][1])) {
+            $guidedCandidate = $this->best_network->Born(max(1, (int)($this->mutationRate / 2)));
+            $guidedTrainer = new BackpropagationTrainer(
+                $guidedCandidate,
+                new \mc\nina\loss\MeanSquaredError(),
+                max(0.001, min(0.05, $this->mutationRate / 1000.0)),
+                new \mc\nina\optimizer\Adam()
+            );
+            $guidedTrainer->trainBatch($screeningPairs, 1);
+            $this->networks[0] = $guidedTrainer->getTrainedNetwork();
+        }
+
+        $best = $this->best_network;
+        $bestScore = $evaluateSubset($best, $screeningPairs);
+
+        foreach ($this->networks as $network) {
+            $score = $evaluateSubset($network, $screeningPairs);
+            if ($score < $bestScore) {
+                $best = $network;
+                $bestScore = $score;
+            }
+        }
+
+        $this->best_network = $best;
+        $populationSize = count($this->networks);
+        $this->networks = [];
+
+        for ($i = 0; $i < $populationSize; ++$i) {
+            $this->networks[] = $this->best_network->Born($this->mutationRate);
         }
     }
 
