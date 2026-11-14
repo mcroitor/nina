@@ -773,6 +773,56 @@ class Cell
     }
 
     /**
+     * Updates cell weights directly with new DNA values.
+     * 
+     * @param array<float> $dna New weight values (must match current DNA size)
+     * 
+     * @throws ValidationException When DNA size does not match
+     * @throws ComputationException When values are non-finite
+     */
+    public function setDna(array $dna): void
+    {
+        if (count($dna) !== count($this->dna)) {
+            throw ValidationException::invalidArraySize('dna', count($dna), count($this->dna));
+        }
+        foreach ($dna as $index => $value) {
+            if (!is_numeric($value)) {
+                throw ValidationException::invalidValue("dna[{$index}]", $value, 'numeric');
+            }
+            if (!is_finite((float)$value)) {
+                throw ComputationException::invalidNumericalValue($value, "DNA value at index {$index}");
+            }
+            $dna[$index] = (float)$value;
+        }
+        $this->dna = $dna;
+    }
+
+    /**
+     * Applies delta adjustments directly to weights: dna[i] += deltas[i].
+     * 
+     * @param array<float> $deltas Adjustment deltas for each weight
+     * 
+     * @throws ValidationException When deltas size does not match DNA size
+     * @throws ComputationException When deltas or results are non-finite
+     */
+    public function applyDeltas(array $deltas): void
+    {
+        if (count($deltas) !== count($this->dna)) {
+            throw ValidationException::invalidArraySize('deltas', count($deltas), count($this->dna));
+        }
+        for ($i = 0; $i < count($this->dna); $i++) {
+            $delta = (float)$deltas[$i];
+            if (!is_finite($delta)) {
+                throw ComputationException::invalidNumericalValue($delta, "delta at index {$i}");
+            }
+            $this->dna[$i] += $delta;
+            if (!is_finite($this->dna[$i])) {
+                throw ComputationException::invalidNumericalValue($this->dna[$i], "updated weight at index {$i}");
+            }
+        }
+    }
+
+    /**
      * Clear cached forward pass data.
      * 
      * Clears all cached intermediate values from forward pass.

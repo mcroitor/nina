@@ -5,7 +5,8 @@ namespace mc\nina;
 use mc\nina\exception\ValidationException;
 use mc\nina\exception\TrainingException;
 use mc\nina\exception\ComputationException;
-use function mc\manhattan_distance;
+
+use function mc\euclidean_distance;
 
 /**
  * Neural network trainer for genetic algorithm-based learning
@@ -30,6 +31,7 @@ class Trainer
 {
     private array $networks = [];
     private Network $best_network;
+    private int $mutationRate;
 
     /**
      * Creates a new trainer with a population of networks based on the source network
@@ -49,7 +51,7 @@ class Trainer
      * $trainer = new Trainer($network, 50); // Creates population of 50 networks
      * ```
      */
-    public function __construct(Network $network, int $pull)
+    public function __construct(Network $network, int $pull, int $mutationRate = 10)
     {
         // Validate network
         if (!($network instanceof Network)) {
@@ -70,9 +72,10 @@ class Trainer
             throw TrainingException::invalidParameters('pull', $pull, 'too large (max 1000)');
         }
         
+        $this->mutationRate = $mutationRate;
         $this->best_network = $network;
         for ($i = 0; $i < $pull; ++$i) {
-            $this->networks[] = $network->Born(5);
+            $this->networks[] = $network->Born($this->mutationRate);
         }
     }
 
@@ -141,7 +144,7 @@ class Trainer
         try {
             $predictor = new Predictor($network);
             $calculated = $predictor->Predict($input);
-            $result = manhattan_distance(
+            $result = euclidean_distance(
                 $calculated,
                 $expected
             );
@@ -151,6 +154,10 @@ class Trainer
                     $result,
                     'distance calculation result'
                 );
+            }
+
+            if (defined('__DEBUG__') && __DEBUG__) {
+                echo "[DEBUG] Input: {$input}, Expected: {$expected}, Predicted: {$calculated}, Distance: {$result}\n";
             }
             
             return $result;
@@ -214,10 +221,11 @@ class Trainer
             }
             
             $this->best_network = $best;
+            $populationSize = count($this->networks);
             $this->networks = [];
             
-            for ($i = 0; $i < count($this->networks); ++$i) {
-                $this->networks[] = $this->best_network->Born(10);
+            for ($i = 0; $i < $populationSize; ++$i) {
+                $this->networks[] = $this->best_network->Born($this->mutationRate);
             }
         } catch (TrainingException $e) {
             throw $e;
@@ -248,5 +256,10 @@ class Trainer
     public function getBestNetwork(): Network
     {
         return $this->best_network;
+    }
+
+    public function getMutationRate(): int
+    {
+        return $this->mutationRate;
     }
 }

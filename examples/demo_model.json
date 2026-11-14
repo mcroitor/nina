@@ -1,1 +1,1 @@
-{"name":"6c32-ce99-786f-78dd","layers":[{"name":"layer1","cells":[{"name":"0981-a057-4178-711a","dna":[0.441]}]}]}
+{"name":"demo_network","layers":[{"name":"layer1","cells":[{"name":"cell1","dna":[0.5]}]}]}

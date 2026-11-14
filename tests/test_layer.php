@@ -100,8 +100,8 @@ function test_layer_calculate(): bool {
 function test_layer_born(): bool {
     $result = true;
     
-    $original_layer = Layer::Create(3);
-    $child_layer = $original_layer->Born(10);
+    $original_layer = Layer::Create(10);
+    $child_layer = $original_layer->Born(50);
     
     // Child should have same structure
     $result = $result && Assert::Equal($original_layer->GetSize(), $child_layer->GetSize());
@@ -120,7 +120,7 @@ function test_layer_born(): bool {
         }
     }
     
-    $result = $result && $different_found;
+    $result = $result && Assert::True($different_found);
     
     return $result;
 }
