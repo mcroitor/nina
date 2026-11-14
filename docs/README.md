@@ -6,10 +6,13 @@ Welcome to the NiNa Neural Network Library documentation. This library provides 
 
 ### Core Documentation
 
-- **[API Reference](api.md)** - Complete API documentation with examples
-- **[Architecture Guide](architecture.md)** - Detailed architecture and design patterns
-- **[Exception System](exceptions.md)** - Error handling and debugging guide
-- **[Genetic Algorithm](genetic_algorithm.md)** - Complete guide to evolutionary neural network training
+- **[API Reference](api.md)** - Complete API documentation with parameters and methods
+- **[Backpropagation & Optimization](backpropagation.md)** - Guide to gradient descent, optimizers (SGD, Adam, RMSprop), schedules, and loss functions
+- **[Genetic Algorithm](genetic_algorithm.md)** - Evolutionary training approach and population dynamics
+- **[Architecture Guide](architecture.md)** - System design, layer connectivity, and design patterns
+- **[Exception System](exceptions.md)** - Error handling and error code reference
+- **[Use Cases & Advanced Usage](use_cases.md)** - Practical machine learning examples and advanced workflows
+- **[Quick Start Guide](../QUICKSTART.md)** - Hands-on beginner tutorial
 
 ### Language Versions
 

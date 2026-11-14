@@ -6,6 +6,7 @@ use mc\nina\exception\ValidationException;
 use mc\nina\exception\NetworkException;
 use mc\nina\exception\SerializationException;
 use mc\nina\activation\ActivationFunction;
+use mc\nina\initializer\Initializer;
 
 /**
  * Complete neural network composed of sequential layers.
@@ -165,18 +166,29 @@ class Network {
             }
         }
         
-        // Validate layer size consistency
+        // Validate layer size and connection consistency
         $firstLayerSize = $layers[0]->GetSize();
+        $isUniform = true;
         foreach ($layers as $index => $layer) {
             if ($layer->GetSize() !== $firstLayerSize) {
-                throw NetworkException::invalidArchitecture(
-                    "All layers must have the same size",
-                    [
-                        'layer_index' => $index,
-                        'layer_size' => $layer->GetSize(),
-                        'expected_size' => $firstLayerSize
-                    ]
-                );
+                $isUniform = false;
+                break;
+            }
+        }
+        
+        if (!$isUniform) {
+            // Allow heterogeneous layers if connections are valid:
+            // each cell in layer i must have weights matching layer i-1 size
+            for ($i = 1; $i < count($layers); $i++) {
+                $prevSize = $layers[$i - 1]->GetSize();
+                for ($j = 0; $j < $layers[$i]->GetSize(); $j++) {
+                    $cell = $layers[$i]->GetCell($j);
+                    if ($cell->GetSize() !== $prevSize) {
+                        throw NetworkException::invalidArchitecture(
+                            "Layer {$i} cell '{$cell->GetName()}' weight size ({$cell->GetSize()}) must match previous layer neuron count ({$prevSize})"
+                        );
+                    }
+                }
             }
         }
         
@@ -279,6 +291,28 @@ class Network {
      */
     public function GetNrLayers(): int {
         return count($this->layers);
+    }
+
+    /**
+     * Initializes all weights across all layers using the specified initializer strategy
+     * 
+     * @param Initializer $initializer Weight initialization strategy (Xavier, He, RandomUniform)
+     */
+    public function initializeWeights(Initializer $initializer): void {
+        $numLayers = count($this->layers);
+        for ($i = 0; $i < $numLayers; $i++) {
+            $layer = $this->layers[$i];
+            if ($layer->GetSize() === 0) {
+                continue;
+            }
+            $fanIn = $layer->GetCell(0)->GetSize();
+            $fanOut = $layer->GetSize();
+            for ($j = 0; $j < $layer->GetSize(); $j++) {
+                $cell = $layer->GetCell($j);
+                $dna = $initializer->initialize($cell->GetSize(), $fanIn, $fanOut);
+                $cell->setDna($dna);
+            }
+        }
     }
 
     /**
@@ -464,7 +498,7 @@ class Network {
             throw ValidationException::invalidValue('input_values', 'empty array', 'non-empty array');
         }
         
-        $expectedSize = $this->GetLayerSize();
+        $expectedSize = $this->layers[0]->GetCell(0)->GetSize();
         
         // Adjust input size to match network
         if(count($values) < $expectedSize) {

@@ -4,22 +4,22 @@
  * Тест производительности для проверки оптимизации Network::Create
  */
 
-include_once __DIR__ . '/src/mc/lib.php';
-include_once __DIR__ . '/src/mc/nina/exception/NinaException.php';
-include_once __DIR__ . '/src/mc/nina/exception/ValidationException.php';
-include_once __DIR__ . '/src/mc/nina/exception/ComputationException.php';
-include_once __DIR__ . '/src/mc/nina/exception/SerializationException.php';
-include_once __DIR__ . '/src/mc/nina/exception/LayerException.php';
-include_once __DIR__ . '/src/mc/nina/exception/NetworkException.php';
-include_once __DIR__ . '/src/mc/nina/exception/TrainingException.php';
-include_once __DIR__ . '/src/mc/nina/activation/ActivationFunction.php';
-include_once __DIR__ . '/src/mc/nina/activation/ReLU.php';
-include_once __DIR__ . '/src/mc/nina/activation/Sigmoid.php';
-include_once __DIR__ . '/src/mc/nina/activation/Tanh.php';
-include_once __DIR__ . '/src/mc/nina/activation/Softmax.php';
-include_once __DIR__ . '/src/mc/nina/cell.php';
-include_once __DIR__ . '/src/mc/nina/layer.php';
-include_once __DIR__ . '/src/mc/nina/network.php';
+include_once __DIR__ . '/../src/mc/lib.php';
+include_once __DIR__ . '/../src/mc/nina/exception/NinaException.php';
+include_once __DIR__ . '/../src/mc/nina/exception/ValidationException.php';
+include_once __DIR__ . '/../src/mc/nina/exception/ComputationException.php';
+include_once __DIR__ . '/../src/mc/nina/exception/SerializationException.php';
+include_once __DIR__ . '/../src/mc/nina/exception/LayerException.php';
+include_once __DIR__ . '/../src/mc/nina/exception/NetworkException.php';
+include_once __DIR__ . '/../src/mc/nina/exception/TrainingException.php';
+include_once __DIR__ . '/../src/mc/nina/activation/ActivationFunction.php';
+include_once __DIR__ . '/../src/mc/nina/activation/ReLU.php';
+include_once __DIR__ . '/../src/mc/nina/activation/Sigmoid.php';
+include_once __DIR__ . '/../src/mc/nina/activation/Tanh.php';
+include_once __DIR__ . '/../src/mc/nina/activation/Softmax.php';
+include_once __DIR__ . '/../src/mc/nina/cell.php';
+include_once __DIR__ . '/../src/mc/nina/layer.php';
+include_once __DIR__ . '/../src/mc/nina/network.php';
 
 use mc\nina\Network;
 use mc\nina\activation\Sigmoid;

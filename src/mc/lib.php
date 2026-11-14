@@ -115,9 +115,24 @@ function limit(float $number): float
  * $ones = array_create(3, 1.0);    // [1.0, 1.0, 1.0]
  * ```
  */
-function array_create(int $size, float $value = 0): array {
+function array_create(int $size, float $value = 0.): array {
     $result = [];
     $result = array_pad($result, $size, $value);
+    return $result;
+}
+
+/**
+ * Creates an array of specified size filled with random float values in range [0, 1]
+ * 
+ * @param int $size Size of the array to create
+ * 
+ * @return array Array of specified size filled with random values
+ */
+function array_random(int $size): array {
+    $result = [];
+    for ($i = 0; $i < $size; $i++) {
+        $result[$i] = rand(0, 100) / 100.0;
+    }
     return $result;
 }
 

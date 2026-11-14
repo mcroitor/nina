@@ -2,12 +2,27 @@
 
 namespace mc\nina;
 
+include_once __DIR__ . '/optimizer/Optimizer.php';
+include_once __DIR__ . '/optimizer/AbstractOptimizer.php';
+include_once __DIR__ . '/optimizer/SGD.php';
+include_once __DIR__ . '/optimizer/Adam.php';
+include_once __DIR__ . '/optimizer/RMSprop.php';
+include_once __DIR__ . '/schedule/LearningRateSchedule.php';
+include_once __DIR__ . '/schedule/ConstantSchedule.php';
+include_once __DIR__ . '/schedule/StepDecaySchedule.php';
+include_once __DIR__ . '/schedule/ExponentialSchedule.php';
+include_once __DIR__ . '/schedule/PlateauSchedule.php';
+
 use mc\nina\exception\ValidationException;
 use mc\nina\exception\TrainingException;
 use mc\nina\exception\ComputationException;
 use mc\nina\exception\NetworkException;
 use mc\nina\loss\LossFunction;
 use mc\nina\loss\MeanSquaredError;
+use mc\nina\optimizer\Optimizer;
+use mc\nina\optimizer\SGD;
+use mc\nina\schedule\LearningRateSchedule;
+use mc\nina\schedule\ConstantSchedule;
 
 /**
  * Neural network trainer using backpropagation algorithm
@@ -102,6 +117,24 @@ class BackpropagationTrainer
      * @var float
      */
     private float $learningRate;
+
+    /**
+     * Initial base learning rate
+     * @var float
+     */
+    private float $initialLearningRate;
+
+    /**
+     * Weight optimizer (SGD, Adam, RMSprop)
+     * @var Optimizer
+     */
+    private Optimizer $optimizer;
+
+    /**
+     * Learning rate decay schedule
+     * @var LearningRateSchedule
+     */
+    private LearningRateSchedule $lrSchedule;
     
     /**
      * Training loss history
@@ -116,11 +149,25 @@ class BackpropagationTrainer
     private int $currentEpoch = 0;
 
     /**
+     * Maximum absolute value for gradient clipping by value
+     * @var float|null
+     */
+    private ?float $clipValue = null;
+
+    /**
+     * Maximum Euclidean norm for gradient clipping by norm
+     * @var float|null
+     */
+    private ?float $clipNorm = null;
+
+    /**
      * Creates a new backpropagation trainer
      * 
      * @param Network $network Neural network to train
      * @param LossFunction $lossFunction Loss function for computing gradients
      * @param float $learningRate Learning rate for gradient descent (0.0001-1.0)
+     * @param Optimizer|null $optimizer Weight optimizer (defaults to SGD)
+     * @param LearningRateSchedule|null $lrSchedule Learning rate schedule (defaults to ConstantSchedule)
      * 
      * @throws ValidationException If parameters are invalid
      * @throws TrainingException If network or loss function setup fails
@@ -135,8 +182,13 @@ class BackpropagationTrainer
      * );
      * ```
      */
-    public function __construct(Network $network, LossFunction $lossFunction, float $learningRate)
-    {
+    public function __construct(
+        Network $network, 
+        LossFunction $lossFunction, 
+        float $learningRate,
+        ?Optimizer $optimizer = null,
+        ?LearningRateSchedule $lrSchedule = null
+    ) {
         // Validate network
         if (!($network instanceof Network)) {
             throw ValidationException::invalidValue(
@@ -174,10 +226,19 @@ class BackpropagationTrainer
             );
         }
         
+        if ($learningRate > 1.0) {
+            throw ComputationException::invalidNumericalValue(
+                $learningRate,
+                'learning rate too large (should be ≤ 1.0)'
+            );
+        }
         
         $this->network = $network;
         $this->lossFunction = $lossFunction;
+        $this->initialLearningRate = $learningRate;
         $this->learningRate = $learningRate;
+        $this->optimizer = $optimizer ?? new SGD();
+        $this->lrSchedule = $lrSchedule ?? new ConstantSchedule();
         $this->lossHistory = [];
         $this->currentEpoch = 0;
     }
@@ -195,6 +256,16 @@ class BackpropagationTrainer
      * ```
      */
     public function getNetwork(): Network
+    {
+        return $this->network;
+    }
+
+    /**
+     * Returns the neural network being trained (alias for getNetwork)
+     * 
+     * @return Network The neural network
+     */
+    public function getTrainedNetwork(): Network
     {
         return $this->network;
     }
@@ -269,6 +340,164 @@ class BackpropagationTrainer
         }
         
         $this->learningRate = $learningRate;
+    }
+
+    /**
+     * Returns the optimizer used for weight updates
+     * 
+     * @return Optimizer
+     */
+    public function getOptimizer(): Optimizer
+    {
+        return $this->optimizer;
+    }
+
+    /**
+     * Sets a new optimizer for weight updates
+     * 
+     * @param Optimizer $optimizer
+     */
+    public function setOptimizer(Optimizer $optimizer): void
+    {
+        $this->optimizer = $optimizer;
+    }
+
+    /**
+     * Returns the learning rate schedule
+     * 
+     * @return LearningRateSchedule
+     */
+    public function getLearningRateSchedule(): LearningRateSchedule
+    {
+        return $this->lrSchedule;
+    }
+
+    /**
+     * Sets a learning rate schedule
+     * 
+     * @param LearningRateSchedule $lrSchedule
+     */
+    public function setLearningRateSchedule(LearningRateSchedule $lrSchedule): void
+    {
+        $this->lrSchedule = $lrSchedule;
+    }
+
+    /**
+     * Sets L2 weight decay regularization factor on current optimizer
+     * 
+     * @param float $weightDecay
+     */
+    public function setWeightDecay(float $weightDecay): void
+    {
+        $this->optimizer->setWeightDecay($weightDecay);
+    }
+
+    /**
+     * Gets L2 weight decay regularization factor from current optimizer
+     * 
+     * @return float
+     */
+    public function getWeightDecay(): float
+    {
+        return $this->optimizer->getWeightDecay();
+    }
+
+    /**
+     * Sets L1 regularization factor on current optimizer
+     * 
+     * @param float $l1
+     */
+    public function setL1Regularization(float $l1): void
+    {
+        $this->optimizer->setL1($l1);
+    }
+
+    /**
+     * Gets L1 regularization factor from current optimizer
+     * 
+     * @return float
+     */
+    public function getL1Regularization(): float
+    {
+        return $this->optimizer->getL1();
+    }
+
+    /**
+     * Resets optimizer and schedule states
+     */
+    public function resetOptimizer(): void
+    {
+        $this->optimizer->reset();
+        $this->lrSchedule->reset();
+    }
+
+    /**
+     * Sets maximum absolute value for gradient clipping (by value)
+     * 
+     * @param float|null $clipValue Positive number or null to disable
+     */
+    public function setClipValue(?float $clipValue): void
+    {
+        if ($clipValue !== null && ($clipValue <= 0.0 || !is_finite($clipValue))) {
+            throw ValidationException::invalidValue('clipValue', $clipValue, 'positive finite float or null');
+        }
+        $this->clipValue = $clipValue;
+    }
+
+    public function getClipValue(): ?float
+    {
+        return $this->clipValue;
+    }
+
+    /**
+     * Sets maximum Euclidean norm for gradient clipping (by norm)
+     * 
+     * @param float|null $clipNorm Positive number or null to disable
+     */
+    public function setClipNorm(?float $clipNorm): void
+    {
+        if ($clipNorm !== null && ($clipNorm <= 0.0 || !is_finite($clipNorm))) {
+            throw ValidationException::invalidValue('clipNorm', $clipNorm, 'positive finite float or null');
+        }
+        $this->clipNorm = $clipNorm;
+    }
+
+    public function getClipNorm(): ?float
+    {
+        return $this->clipNorm;
+    }
+
+    /**
+     * Applies gradient clipping to weight gradients array
+     * 
+     * @param array<float> &$gradients
+     */
+    private function applyGradientClipping(array &$gradients): void
+    {
+        if ($this->clipValue !== null && $this->clipValue > 0.0) {
+            $c = $this->clipValue;
+            for ($i = 0; $i < count($gradients); $i++) {
+                if ($gradients[$i] > $c) {
+                    $gradients[$i] = $c;
+                } elseif ($gradients[$i] < -$c) {
+                    $gradients[$i] = -$c;
+                }
+            }
+        }
+
+        if ($this->clipNorm !== null && $this->clipNorm > 0.0) {
+            $sumSq = 0.0;
+            foreach ($gradients as $g) {
+                $sumSq += $g * $g;
+            }
+            $norm = sqrt($sumSq);
+            if ($norm > $this->clipNorm && $norm > 1e-12) {
+                $scale = $this->clipNorm / $norm;
+                for ($i = 0; $i < count($gradients); $i++) {
+                    $gradients[$i] *= $scale;
+                }
+            }
+        }
     }
 
     /**
@@ -352,7 +581,7 @@ class BackpropagationTrainer
             // Get network layers
             $numLayers = $this->network->GetNrLayers();
             if ($numLayers === 0) {
-                throw NetworkException::invalidStructure('network has no layers');
+                throw NetworkException::invalidArchitecture('network has no layers');
             }
 
             $currentInput = $input;
@@ -367,13 +596,12 @@ class BackpropagationTrainer
                     throw NetworkException::invalidArchitecture("layer {$layerIndex} has no cells");
                 }
                 
-                // Ensure input size matches layer size
-                $expectedSize = $numCells;
-                if (count($currentInput) !== $expectedSize) {
-                    throw NetworkException::incompatibleOperation(
-                        'layer forward pass',
-                        "Input size (" . count($currentInput) . ") does not match expected size ({$expectedSize}) for layer {$layerIndex}"
-                    );
+                // Adjust input size to match layer's cell weight dimension
+                $expectedSize = $layer->GetCell(0)->GetSize();
+                if (count($currentInput) < $expectedSize) {
+                    $currentInput = array_pad($currentInput, $expectedSize, 0.0);
+                } elseif (count($currentInput) > $expectedSize) {
+                    $currentInput = array_slice($currentInput, 0, $expectedSize);
                 }
                 
                 // Process each cell in the layer
@@ -510,11 +738,9 @@ class BackpropagationTrainer
                         foreach ($cellInputs as $input) {
                             $weightGradients[] = $localGradient * $input;
                         }
+                        $this->applyGradientClipping($weightGradients);
                         
-                        // Apply weight updates
-                        $cell->updateWeights($weightGradients, $this->learningRate);
-                        
-                        // For hidden layers, compute gradients for previous layer
+                        // For hidden layers, compute gradients for previous layer BEFORE updating weights
                         if ($layerIndex > 0) {
                             $cellWeights = $cell->GetDna();
                             
@@ -532,6 +758,9 @@ class BackpropagationTrainer
                                 $nextGradient[$i] += $cellWeights[$i] * $localGradient;
                             }
                         }
+                        
+                        // Apply weight updates via optimizer
+                        $this->optimizer->update($cell, $weightGradients, $this->learningRate);
                         
                     } catch (\Exception $e) {
                         throw NetworkException::incompatibleOperation(
@@ -555,6 +784,67 @@ class BackpropagationTrainer
                 "Backward pass failed: " . $e->getMessage()
             );
         }
+    }
+
+    /**
+     * Computes gradients for all weights in the network without updating them.
+     * Useful for gradient inspection, mini-batch accumulation, and verification.
+     * 
+     * @param array $input Input vector
+     * @param array $expected Expected output vector
+     * 
+     * @return array<int, array<int, array<float>>> Gradients indexed by [layerIndex][cellIndex]
+     */
+    public function computeGradients(array $input, array $expected): array
+    {
+        $predicted = $this->forwardPass($input);
+
+        $numLayers = $this->network->GetNrLayers();
+        if ($numLayers === 0) {
+            throw NetworkException::invalidArchitecture('network has no layers');
+        }
+
+        $lossGradient = $this->lossFunction->derivative($predicted, $expected);
+        $currentGradient = $lossGradient;
+        $allGradients = [];
+
+        for ($layerIndex = $numLayers - 1; $layerIndex >= 0; $layerIndex--) {
+            $layer = $this->network->GetLayer($layerIndex);
+            $numCells = $layer->GetSize();
+            $nextGradient = null;
+            $allGradients[$layerIndex] = [];
+
+            for ($cellIndex = 0; $cellIndex < $numCells; $cellIndex++) {
+                $cell = $layer->GetCell($cellIndex);
+                $cellErrorSignal = $currentGradient[$cellIndex];
+                $activationDerivative = $cell->getActivationDerivative();
+                $localGradient = $cellErrorSignal * $activationDerivative;
+                $cellInputs = $cell->getLastInputs();
+
+                $weightGradients = [];
+                foreach ($cellInputs as $val) {
+                    $weightGradients[] = $localGradient * $val;
+                }
+                $this->applyGradientClipping($weightGradients);
+                $allGradients[$layerIndex][$cellIndex] = $weightGradients;
+
+                if ($layerIndex > 0) {
+                    $cellWeights = $cell->GetDna();
+                    if ($nextGradient === null) {
+                        $nextGradient = array_fill(0, count($cellWeights), 0.0);
+                    }
+                    for ($i = 0; $i < count($cellWeights); $i++) {
+                        if (!isset($nextGradient[$i])) {
+                            $nextGradient[$i] = 0.0;
+                        }
+                        $nextGradient[$i] += $cellWeights[$i] * $localGradient;
+                    }
+                }
+            }
+            $currentGradient = $nextGradient;
+        }
+
+        return $allGradients;
     }
 
     /**
@@ -669,7 +959,36 @@ class BackpropagationTrainer
      * echo "Training completed. Final loss: " . end($epochLosses) . "\n";
      * ```
      */
-    public function trainBatch(array $trainingData, int $epochs, ?float $targetLoss = null): array
+    /**
+     * Trains the network on a batch of training examples
+     * 
+     * Performs multiple epochs of training on the provided dataset.
+     * Each epoch processes all training examples once.
+     * 
+     * @param array $trainingData Array of [input, expected] pairs
+     * @param int $epochs Number of training epochs (1-10000)
+     * @param float|null $targetLoss Optional early stopping loss threshold
+     * @param int $batchSize Size of mini-batch for gradient updates (1 = online SGD)
+     * 
+     * @return array<float> Loss values for each epoch
+     * 
+     * @throws TrainingException If batch training fails
+     * @throws ValidationException If parameters are invalid
+     * 
+     * @example
+     * ```php
+     * $data = [
+     *     [[0.0, 0.0], [0.0]],  // XOR training data
+     *     [[0.0, 1.0], [1.0]],
+     *     [[1.0, 0.0], [1.0]],
+     *     [[1.0, 1.0], [0.0]]
+     * ];
+     * 
+     * $epochLosses = $trainer->trainBatch($data, 1000, 0.01);
+     * echo "Training completed. Final loss: " . end($epochLosses) . "\n";
+     * ```
+     */
+    public function trainBatch(array $trainingData, int $epochs, ?float $targetLoss = null, int $batchSize = 1): array
     {
         if (empty($trainingData)) {
             throw TrainingException::invalidTrainingData('training data cannot be empty');
@@ -683,6 +1002,10 @@ class BackpropagationTrainer
             throw ValidationException::outOfRange('epochs', $epochs, 1, 10000);
         }
         
+        if ($batchSize <= 0) {
+            throw ValidationException::invalidValue('batchSize', $batchSize, 'positive integer >= 1');
+        }
+
         if ($targetLoss !== null && (!is_numeric($targetLoss) || $targetLoss < 0)) {
             throw ValidationException::invalidValue(
                 'targetLoss',
@@ -717,25 +1040,80 @@ class BackpropagationTrainer
         try {
             for ($epoch = 0; $epoch < $epochs; $epoch++) {
                 $this->currentEpoch = $epoch;
+                
+                // Adjust learning rate via schedule at the start of epoch
+                $lastLoss = empty($epochLosses) ? null : end($epochLosses);
+                $this->learningRate = $this->lrSchedule->getLearningRate($epoch, $this->initialLearningRate, $lastLoss);
+
                 $epochTotalLoss = 0.0;
                 $exampleCount = 0;
                 
-                // Process each training example
-                foreach ($trainingData as $index => $example) {
-                    try {
-                        $input = $example[0];
-                        $expected = $example[1];
-                        
-                        $loss = $this->trainSingle($input, $expected);
-                        $epochTotalLoss += $loss;
-                        $exampleCount++;
-                        
-                    } catch (\Exception $e) {
-                        throw TrainingException::convergenceError(
-                            $epoch,
-                            $epochTotalLoss / max(1, $exampleCount),
-                            "Failed to train on example {$index}: " . $e->getMessage()
-                        );
+                if ($batchSize <= 1) {
+                    // Online stochastic gradient descent (update per example)
+                    foreach ($trainingData as $index => $example) {
+                        try {
+                            $input = $example[0];
+                            $expected = $example[1];
+                            
+                            $loss = $this->trainSingle($input, $expected);
+                            $epochTotalLoss += $loss;
+                            $exampleCount++;
+                            
+                        } catch (\Exception $e) {
+                            throw TrainingException::convergenceError(
+                                $epoch,
+                                $epochTotalLoss / max(1, $exampleCount),
+                                "Failed to train on example {$index}: " . $e->getMessage()
+                            );
+                        }
+                    }
+                } else {
+                    // Mini-batch gradient accumulation
+                    $chunks = array_chunk($trainingData, $batchSize);
+                    foreach ($chunks as $chunk) {
+                        $accumulatedGradients = [];
+                        $batchCount = count($chunk);
+
+                        foreach ($chunk as $index => $example) {
+                            $input = $example[0];
+                            $expected = $example[1];
+
+                            $predicted = $this->forwardPass($input);
+                            $loss = $this->lossFunction->calculate($predicted, $expected);
+                            $epochTotalLoss += $loss;
+                            $exampleCount++;
+
+                            $grads = $this->computeGradients($input, $expected);
+                            foreach ($grads as $layerIdx => $layerGrads) {
+                                if (!isset($accumulatedGradients[$layerIdx])) {
+                                    $accumulatedGradients[$layerIdx] = [];
+                                }
+                                foreach ($layerGrads as $cellIdx => $cellGrads) {
+                                    if (!isset($accumulatedGradients[$layerIdx][$cellIdx])) {
+                                        $accumulatedGradients[$layerIdx][$cellIdx] = array_fill(0, count($cellGrads), 0.0);
+                                    }
+                                    for ($w = 0; $w < count($cellGrads); $w++) {
+                                        $accumulatedGradients[$layerIdx][$cellIdx][$w] += $cellGrads[$w];
+                                    }
+                                }
+                            }
+                        }
+
+                        // Apply averaged gradients for the mini-batch
+                        $numLayers = $this->network->GetNrLayers();
+                        for ($l = 0; $l < $numLayers; $l++) {
+                            $layer = $this->network->GetLayer($l);
+                            $numCells = $layer->GetSize();
+                            for ($c = 0; $c < $numCells; $c++) {
+                                if (isset($accumulatedGradients[$l][$c])) {
+                                    $avgGrads = array_map(function($g) use ($batchCount) {
+                                        return $g / $batchCount;
+                                    }, $accumulatedGradients[$l][$c]);
+                                    $this->applyGradientClipping($avgGrads);
+                                    $this->optimizer->update($layer->GetCell($c), $avgGrads, $this->learningRate);
+                                }
+                            }
+                        }
                     }
                 }
                 

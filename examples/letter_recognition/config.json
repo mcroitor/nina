@@ -1,0 +1,79 @@
+{
+  "model": {
+    "name": "letter_a_recognition",
+    "description": "Neural network for letter 'a' recognition on 8x8 pixel sprites",
+    "architecture": {
+      "input_size": 64,
+      "layers": 3,
+      "layer_size": 64,
+      "activation_function": "sigmoid"
+    },
+    "output": {
+      "type": "classification",
+      "threshold": 0.5,
+      "target_positive": 0.8,
+      "target_negative": 0.2
+    }
+  },
+  "dataset": {
+    "positive_samples": 20,
+    "negative_samples": 15,
+    "training_noise_level": 0.05,
+    "test_noise_level": 0.1,
+    "patterns": {
+      "positive_variations": 2,
+      "negative_letters": ["b", "c"],
+      "include_random": true
+    }
+  },
+  "genetic": {
+    "population_size": 100,
+    "generations": 30,
+    "mutation_rate": 15,
+    "target_fitness": 0.90,
+    "elite_percentage": 0.1,
+    "breeding_pool_percentage": 0.3,
+    "early_stop": true
+  },
+  "backpropagation": {
+    "max_epochs": 100,
+    "learning_rate": 0.01,
+    "target_loss": 0.05,
+    "batch_size": 1,
+    "loss_function": "mse",
+    "early_stop_patience": 10,
+    "learning_rate_decay": 0.95
+  },
+  "hybrid": {
+    "ga_first": true,
+    "ga_population": 50,
+    "ga_generations": 20,
+    "ga_mutation_rate": 0.1,
+    "ga_target_fitness": 0.8,
+    "bp_max_epochs": 50,
+    "bp_learning_rate": 0.005,
+    "bp_target_loss": 0.05,
+    "transition_threshold": 0.7
+  },
+  "multiobjective": {
+    "population_per_objective": 30,
+    "generations": 15,
+    "mutation_rate": 0.15,
+    "target_combined_fitness": 0.85,
+    "objective_weights": {
+      "accuracy": 0.4,
+      "robustness": 0.35,
+      "simplicity": 0.25
+    },
+    "final_bp_epochs": 30,
+    "final_bp_learning_rate": 0.01
+  },
+  "output": {
+    "save_model": true,
+    "load_existing_model": false,
+    "model_directory": "./models/",
+    "verbose": true,
+    "show_progress": true,
+    "test_cases": 6
+  }
+}
