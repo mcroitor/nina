@@ -36,12 +36,19 @@ try {
     
     // Подготовка данных
     $trainingData = prepareTrainingDataFromConfig($config);
+    printConfigInfo($config, $trainingData);
+    $backpropData = prepareBackpropData($trainingData, $model['architecture']['layer_size']);
     
     // Настройка тренера
     echo "🔧 Настройка Backpropagation тренера:\n";
     echo "====================================\n";
     $lossFunction = new MeanSquaredError();
-    $trainer = new BackpropagationTrainer($network, $lossFunction, $backprop['learning_rate']);
+    $trainer = new BackpropagationTrainer(
+        $network,
+        $lossFunction,
+        $backprop['learning_rate'],
+        new \mc\nina\optimizer\Adam()
+    );
     
     echo "✅ Параметры обучения:\n";
     echo "  📊 Функция потерь: Mean Squared Error\n";
@@ -57,7 +64,8 @@ try {
     echo "📈 Начальная точность: " . round($initialAccuracy * 100, 1) . "%\n\n";
     
     // Пакетное обучение
-    $epochLosses = $trainer->trainBatch($trainingData, $backprop['max_epochs'], $backprop['target_loss']);
+    $batchSize = $backprop['batch_size'] ?? 1;
+    $epochLosses = $trainer->trainBatch($backpropData, $backprop['max_epochs'], $backprop['target_loss'], $batchSize);
     
     $trainingTime = microtime(true) - $startTime;
     $totalEpochs = count($epochLosses);
@@ -72,7 +80,7 @@ try {
         'epochs' => $totalEpochs,
         'final_accuracy' => $finalAccuracy,
         'final_loss' => $finalLoss,
-        'improvement' => ($finalAccuracy - $initialAccuracy) * 100,
+        'improvement' => $finalAccuracy - $initialAccuracy,
         'training_time' => $trainingTime,
         'convergence_achieved' => $finalLoss <= $backprop['target_loss']
     ];
@@ -102,7 +110,7 @@ try {
         echo "📉 Скорость сходимости: " . round($convergenceRate * 1000, 4) . " × 10⁻³ за эпоху\n";
     }
 
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     echo "❌ Ошибка: " . $e->getMessage() . "\n";
     echo "Класс: " . get_class($e) . "\n";
     echo "Файл: " . $e->getFile() . ":" . $e->getLine() . "\n";

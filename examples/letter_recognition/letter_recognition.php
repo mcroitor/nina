@@ -35,60 +35,49 @@ try {
     printConfigInfo($config, $trainingData);
     
     // Создание и обучение сети
+    $mutationRate = normalizeMutationRate($genetic['mutation_rate']);
     echo "🧬 Генетическое обучение:\n";
     echo "========================\n";
     echo "🔬 Размер популяции: {$genetic['population_size']}\n";
     echo "🔄 Максимум поколений: {$genetic['generations']}\n";  
-    echo "🧪 Уровень мутации: {$genetic['mutation_rate']}%\n";
+    echo "🧪 Уровень мутации: {$mutationRate}%\n";
     echo "🎯 Целевая приспособленность: " . round($genetic['target_fitness'] * 100, 1) . "%\n\n";
     
     // Создание модели
-    $network = Network::Create(
-        $model['name'], 
-        $model['architecture']['layers'], 
-        $model['architecture']['layer_size']
-    );
+    $network = createOrLoadNetwork($config, "letter_a_ga_model.json");
+    $initialAccuracy = calculateAccuracy($network, $trainingData, $model['output']['threshold']);
     
     // Создание тренера
-    $trainer = new Trainer($network, $genetic['population_size'], $genetic['mutation_rate'] * 100);
+    $trainer = new Trainer($network, $genetic['population_size'], $mutationRate);
     
     echo "🚀 Начинаем эволюционное обучение...\n";
     
-    $bestFitness = 0;
+    $bestFitness = $initialAccuracy;
+    $bestOverallNetwork = $network;
     for ($iteration = 1; $iteration <= $genetic['generations']; $iteration++) {
-        // Обучение на всех примерах в поколении
-        foreach ($trainingData as $sample) {
-            // Конвертируем массив в строку для NiNa API
-            $inputString = implode('', array_map(function($x) { 
-                return chr(intval($x * 255)); 
-            }, $sample['input']));
-            
-            $expectedString = implode('', array_map(function($x) { 
-                return chr(intval($x * 255)); 
-            }, $sample['target']));
-            
-            $trainer->Train($inputString, $expectedString);
-        }
+        // Пакетное эволюционное обучение поколения на всех примерах датасета
+        $trainer->TrainBatch($trainingData);
         
         // Вычисляем приспособленность как точность
-        $bestNetwork = $trainer->getBestNetwork();
-        $fitness = calculateAccuracy($bestNetwork, $trainingData, $model['output']['threshold']);
+        $currentNetwork = $trainer->getBestNetwork();
+        $fitness = calculateAccuracy($currentNetwork, $trainingData, $model['output']['threshold']);
         
-        if ($fitness > $bestFitness) {
+        if ($fitness >= $bestFitness) {
             $bestFitness = $fitness;
+            $bestOverallNetwork = $currentNetwork;
         }
         
         // Показываем прогресс каждые 5 итераций
         if ($iteration % 5 === 0 || $iteration === 1) {
-            echo "Поколение $iteration: лучшая приспособленность = " . round($fitness * 100, 1) . "%";
-            if ($fitness >= $genetic['target_fitness']) {
+            echo "Поколение $iteration: лучшая приспособленность = " . round($bestFitness * 100, 1) . "%";
+            if ($bestFitness >= $genetic['target_fitness']) {
                 echo " 🎯";
             }
             echo "\n";
         }
         
         // Ранняя остановка при достижении цели
-        if (isset($genetic['early_stop']) && $genetic['early_stop'] && $fitness >= $genetic['target_fitness']) {
+        if (isset($genetic['early_stop']) && $genetic['early_stop'] && $bestFitness >= $genetic['target_fitness']) {
             echo "🏆 Достигнута целевая приспособленность на поколении $iteration!\n";
             break;
         }
@@ -96,17 +85,18 @@ try {
     
     $endTime = microtime(true);
     $trainingTime = $endTime - $startTime;
+    $usedGenerations = min($iteration, $genetic['generations']);
     
     // Получаем лучшую сеть
-    $bestNetwork = $trainer->getBestNetwork();
+    $bestNetwork = $bestOverallNetwork;
     $finalAccuracy = calculateAccuracy($bestNetwork, $trainingData, $model['output']['threshold']);
     
     // Результаты обучения
     $trainingResults = [
-        'generations' => $iteration,
+        'generations' => $usedGenerations,
         'final_accuracy' => $finalAccuracy,
         'final_fitness' => $bestFitness,
-        'improvement' => $bestFitness - 0, // Начальная приспособленность обычно близка к 0
+        'improvement' => max(0.0, $finalAccuracy - $initialAccuracy),
         'training_time' => $trainingTime
     ];
     
@@ -125,11 +115,11 @@ try {
     echo "📊 Статистика эволюции:\n";
     echo "=======================\n";
     echo "🥇 Лучшая приспособленность: " . round($bestFitness * 100, 1) . "%\n";
-    echo "📈 Поколений использовано: $iteration из {$genetic['generations']}\n";
+    echo "📈 Поколений использовано: $usedGenerations из {$genetic['generations']}\n";
     echo "🎯 Цель достигнута: " . ($bestFitness >= $genetic['target_fitness'] ? "ДА" : "НЕТ") . "\n";
-    echo "⚡ Эффективность: " . round(($iteration / $genetic['generations']) * 100, 1) . "% от максимума\n";
+    echo "⚡ Эффективность: " . round(($usedGenerations / $genetic['generations']) * 100, 1) . "% от максимума\n";
 
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     echo "❌ Ошибка: " . $e->getMessage() . "\n";
     echo "Класс: " . get_class($e) . "\n";
     echo "Файл: " . $e->getFile() . ":" . $e->getLine() . "\n";

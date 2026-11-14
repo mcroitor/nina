@@ -49,14 +49,14 @@ function createLetterA(): array {
  */
 function createLetterA2(): array {
     return [
-        0,0,1,1,1,1,0,0,
-        0,1,0,0,0,0,1,0,
-        1,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,1,
-        1,1,1,1,1,1,1,1,
-        1,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,1
+        0,0,1,1,1,1,1,0,
+        0,1,0,0,0,1,1,0,
+        1,0,0,0,0,0,1,0,
+        1,0,0,0,0,0,1,0,
+        1,1,1,1,1,1,1,0,
+        1,0,0,0,0,0,1,0,
+        1,0,0,0,0,0,1,0,
+        0,0,0,0,0,0,0,0
     ];
 }
 
@@ -164,26 +164,20 @@ function prepareTrainingDataFromConfig(array $config): array {
     $negativeSamples = $dataset['negative_samples'];
     $negativeLetters = $dataset['patterns']['negative_letters'];
     $includeRandom = $dataset['patterns']['include_random'];
+    $negativeTypesCount = count($negativeLetters) + ($includeRandom ? 1 : 0);
     
     for ($i = 0; $i < $negativeSamples; $i++) {
-        if ($i < count($negativeLetters)) {
-            // Используем реальные буквы
-            $letter = $negativeLetters[$i % count($negativeLetters)];
+        $typeIndex = $i % max(1, $negativeTypesCount);
+        if ($typeIndex < count($negativeLetters)) {
+            // Используем реальные буквы ('b', 'c')
+            $letter = $negativeLetters[$typeIndex];
             $basePattern = $letterPatterns[$letter][0];
             $noisyPattern = addNoise($basePattern, $dataset['training_noise_level']);
             $label = "letter_$letter";
         } else {
-            // Используем случайные паттерны если включены
-            if ($includeRandom) {
-                $noisyPattern = createRandomSprite($model['architecture']['input_size']);
-                $label = 'random_pattern';
-            } else {
-                // Повторяем существующие буквы
-                $letter = $negativeLetters[$i % count($negativeLetters)];
-                $basePattern = $letterPatterns[$letter][0];
-                $noisyPattern = addNoise($basePattern, $dataset['training_noise_level']);
-                $label = "letter_$letter";
-            }
+            // Используем случайные паттерны
+            $noisyPattern = createRandomSprite($model['architecture']['input_size']);
+            $label = 'random_pattern';
         }
         
         $adjustedPattern = adjustInputToLayerSize($noisyPattern, $model['architecture']['layer_size']);
@@ -197,7 +191,21 @@ function prepareTrainingDataFromConfig(array $config): array {
         ];
     }
     
-    return $trainingData;
+    // Чередуем положительные и отрицательные примеры для стабильного градиентного обучения
+    $positives = array_values(array_filter($trainingData, fn($s) => $s['expected'] === true));
+    $negatives = array_values(array_filter($trainingData, fn($s) => $s['expected'] === false));
+    $interleavedData = [];
+    $maxLen = max(count($positives), count($negatives));
+    for ($i = 0; $i < $maxLen; $i++) {
+        if (isset($positives[$i])) {
+            $interleavedData[] = $positives[$i];
+        }
+        if (isset($negatives[$i])) {
+            $interleavedData[] = $negatives[$i];
+        }
+    }
+    
+    return $interleavedData;
 }
 
 /**
@@ -223,15 +231,73 @@ function calculateAccuracy($network, array $trainingData, float $threshold): flo
 /**
  * Подготавливает данные для backpropagation обучения
  */
-function prepareBackpropData(array $trainingData, int $layerSize): array {
+function prepareBackpropData(array $trainingData, ?int $layerSize = null): array {
     $backpropData = [];
     
     foreach ($trainingData as $sample) {
-        $target = array_fill(0, $layerSize, $sample['target_avg']);
+        if (isset($sample['target']) && is_array($sample['target'])) {
+            $target = $sample['target'];
+            if ($layerSize !== null && count($target) !== $layerSize) {
+                $target = adjustInputToLayerSize($target, $layerSize);
+            }
+        } else {
+            $targetVal = $sample['target_avg'] ?? ($sample['expected'] ? 0.8 : 0.2);
+            $size = $layerSize ?? count($sample['input']);
+            $target = array_fill(0, $size, $targetVal);
+        }
         $backpropData[] = [$sample['input'], $target];
     }
     
     return $backpropData;
+}
+
+/**
+ * Конвертирует числовой массив [0..1] в байтовую строку для Trainer/Predictor
+ */
+function arrayToTrainerString(array $values): string {
+    return implode('', array_map(function($x) {
+        return chr(min(255, max(0, (int)round($x * 255))));
+    }, $values));
+}
+
+/**
+ * Нормализует уровень мутации (поддерживает и долю 0..1, и проценты 1..100)
+ */
+function normalizeMutationRate(float|int $rate): int {
+    if ($rate > 0 && $rate < 1) {
+        return (int)round($rate * 100);
+    }
+    return max(0, min(100, (int)round($rate)));
+}
+
+/**
+ * Создает экземпляр функции активации по имени из конфигурации
+ */
+function createActivationFunction(string $name): \mc\nina\activation\ActivationFunction {
+    switch (strtolower(trim($name))) {
+        case 'sigmoid':
+            return new \mc\nina\activation\Sigmoid();
+        case 'tanh':
+            return new \mc\nina\activation\Tanh();
+        case 'softmax':
+            return new \mc\nina\activation\Softmax();
+        case 'relu':
+        default:
+            return new \mc\nina\activation\ReLU();
+    }
+}
+
+/**
+ * Разрешает путь к директории моделей относительно директории примера
+ */
+function resolveModelDirectory(array $config): string {
+    $modelDir = $config['output']['model_directory'] ?? './models/';
+    if (str_starts_with($modelDir, './') || str_starts_with($modelDir, '.\\')) {
+        $modelDir = __DIR__ . DIRECTORY_SEPARATOR . substr($modelDir, 2);
+    } elseif (!preg_match('/^([a-zA-Z]:[\\\\\/]|[\\\\\/])/', $modelDir)) {
+        $modelDir = __DIR__ . DIRECTORY_SEPARATOR . $modelDir;
+    }
+    return rtrim($modelDir, "/\\") . DIRECTORY_SEPARATOR;
 }
 
 /**
@@ -422,7 +488,7 @@ function saveModel($network, string $filename, array $config): void {
         return;
     }
     
-    $modelDir = $outputConfig['model_directory'] ?? './models/';
+    $modelDir = resolveModelDirectory($config);
     if (!is_dir($modelDir)) {
         mkdir($modelDir, 0755, true);
     }
@@ -438,9 +504,11 @@ function saveModel($network, string $filename, array $config): void {
 function createOrLoadNetwork(array $config, string $modelFilename): \mc\nina\Network {
     $model = $config['model'];
     $outputConfig = $config['output'];
+    $activationName = $model['architecture']['activation_function'] ?? 'sigmoid';
+    $activation = createActivationFunction($activationName);
     
     // Определяем полный путь к модели
-    $modelDir = $outputConfig['model_directory'] ?? './models/';
+    $modelDir = resolveModelDirectory($config);
     $fullPath = $modelDir . $modelFilename;
     
     // Пытаемся загрузить существующую модель
@@ -457,13 +525,15 @@ function createOrLoadNetwork(array $config, string $modelFilename): \mc\nina\Net
         }
     }
     
-    // Создаем новую модель
+    // Создаем новую модель с заданной функцией активации и инициализацией весов Xavier
     echo "🆕 Создание новой модели...\n";
     $network = \mc\nina\Network::Create(
         $model['name'], 
         $model['architecture']['layers'], 
-        $model['architecture']['layer_size']
+        $model['architecture']['layer_size'],
+        $activation
     );
+    $network->initializeWeights(new \mc\nina\initializer\XavierInitializer());
     echo "✅ Новая модель создана!\n\n";
     
     return $network;

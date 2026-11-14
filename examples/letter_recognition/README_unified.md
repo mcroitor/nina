@@ -51,7 +51,7 @@
   "dataset": {
     "positive_samples": 20,
     "negative_samples": 15,
-    "noise_level": 0.05,
+    "training_noise_level": 0.05,
     "test_noise_level": 0.1
   },
   "genetic": {

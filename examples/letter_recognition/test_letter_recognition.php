@@ -22,25 +22,8 @@
  * @date 2025-10-10
  */
 
-// Подключение всех необходимых файлов
-include_once __DIR__ . '/../../src/mc/lib.php';
-include_once __DIR__ . '/../../src/mc/nina/exception/NinaException.php';
-include_once __DIR__ . '/../../src/mc/nina/exception/ValidationException.php';
-include_once __DIR__ . '/../../src/mc/nina/exception/ComputationException.php';
-include_once __DIR__ . '/../../src/mc/nina/exception/SerializationException.php';
-include_once __DIR__ . '/../../src/mc/nina/exception/LayerException.php';
-include_once __DIR__ . '/../../src/mc/nina/exception/NetworkException.php';
-include_once __DIR__ . '/../../src/mc/nina/exception/TrainingException.php';
-include_once __DIR__ . '/../../src/mc/nina/activation/ActivationFunction.php';
-include_once __DIR__ . '/../../src/mc/nina/activation/ReLU.php';
-include_once __DIR__ . '/../../src/mc/nina/activation/Sigmoid.php';
-include_once __DIR__ . '/../../src/mc/nina/activation/Tanh.php';
-include_once __DIR__ . '/../../src/mc/nina/activation/Softmax.php';
-include_once __DIR__ . '/../../src/mc/nina/cell.php';
-include_once __DIR__ . '/../../src/mc/nina/layer.php';
-include_once __DIR__ . '/../../src/mc/nina/network.php';
-include_once __DIR__ . '/../../src/mc/nina/trainer.php';
-include_once __DIR__ . '/../../src/mc/nina/predictor.php';
+// Подключение автозагрузчика библиотеки
+require_once __DIR__ . '/../../src/autoload.php';
 
 use mc\nina\Network;
 use mc\nina\Predictor;
@@ -143,7 +126,8 @@ function analyzeResult(array $result): array
     $min = min($result);
     $max = max($result);
     $positiveCount = count(array_filter($result, fn($x) => $x > 0.5));
-    $confidence = $isLetterA ? $average : (1 - $average);
+    $clampedAvg = min(1.0, max(0.0, $average));
+    $confidence = $isLetterA ? $clampedAvg : (1.0 - $clampedAvg);
     
     return [
         'average' => $average,
@@ -250,21 +234,22 @@ try {
     // Конвертируем паттерн в строку для Predictor
     $patternString = "";
     foreach ($expandedPattern as $pixel) {
-        $patternString .= chr(min(255, max(0, $pixel * 255)));
+        $patternString .= chr(min(255, max(0, (int)round($pixel * 255))));
     }
     
     $predictionString = $predictor->Predict($patternString);
-    $firstChar = ord($predictionString[0]) / 255.0;
+    $predValues = \mc\string2array($predictionString);
+    $avgPred = array_sum($predValues) / count($predValues);
     
-    echo sprintf("✓ Predictor результат: %.6f\n", $firstChar);
+    echo sprintf("✓ Predictor результат: %.6f\n", $avgPred);
     echo sprintf("  - Классификация: %s\n", 
-                 $firstChar > 0.5 ? "Буква 'А'" : "НЕ буква 'А'");
+                 $avgPred > 0.5 ? "Буква 'А'" : "НЕ буква 'А'");
     echo sprintf("  - Уверенность Predictor: %.2f%%\n", 
-                 ($firstChar > 0.5 ? $firstChar : (1 - $firstChar)) * 100);
+                 ($avgPred > 0.5 ? $avgPred : (1 - $avgPred)) * 100);
     
     echo "\n🎉 Тестирование завершено успешно!\n";
     
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     echo "❌ Ошибка: " . $e->getMessage() . "\n";
     echo "Стек вызовов:\n" . $e->getTraceAsString() . "\n";
     exit(1);
