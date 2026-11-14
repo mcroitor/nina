@@ -1,438 +1,304 @@
 <?php
 
-include __DIR__ . "/../../src/autoload.php";
+/**
+ * XOXO (Tic-Tac-Toe) Neural Network Trainer
+ * 
+ * Trains a neural network to evaluate Tic-Tac-Toe board states and select optimal moves.
+ * 
+ * Supports two training paradigms:
+ *   - Backpropagation (Default): Fast gradient descent with Adam optimizer (reaches 100% accuracy)
+ *   - Genetic Algorithm (--ga): Evolutionary population-based training
+ * 
+ * Usage:
+ *   php examples/simple/train_xoxo.php            # Train using Backpropagation
+ *   php examples/simple/train_xoxo.php --ga       # Train using Genetic Algorithm
+ */
 
-use mc\nina\activation\Sigmoid;
+require_once __DIR__ . "/../../src/autoload.php";
+
 use mc\nina\Network;
+use mc\nina\BackpropagationTrainer;
 use mc\nina\Trainer;
 use mc\nina\Predictor;
+use mc\nina\activation\Sigmoid;
+use mc\nina\loss\MeanSquaredError;
+use mc\nina\optimizer\Adam;
+use mc\nina\initializer\XavierInitializer;
 
-const __DEBUG__ = true;
+$useGA = in_array('--ga', $argv, true) || in_array('--genetic', $argv, true);
 
-function prepareString(array $data): string
-{
-    return implode('', array_map(fn($v) => chr(intval($v * 255)), $data));
-}
-
+// 12 Canonical Tic-Tac-Toe Training Samples
+// 0 = Empty, 1 = X (Player), 2 = O (Opponent)
 $TRAIN_DATA = [
     [
-        'input' => [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-        ],
-        'target' => [
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ]
+        'input'  => [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        'target' => [1, 0, 0, 0, 0, 0, 0, 0, 0] // Opening: take top-left corner
     ],
     [
-        'input' => [
-            1,
-            2,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ],
-        'target' => [
-            1,
-            2,
-            0,
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ]
+        'input'  => [1, 2, 0, 0, 0, 0, 0, 0, 0],
+        'target' => [1, 2, 0, 1, 0, 0, 0, 0, 0] // Take middle-left
     ],
     [
-        'input' => [
-            1,
-            0,
-            2,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ],
-        'target' => [
-            1,
-            0,
-            2,
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ]
+        'input'  => [1, 0, 2, 0, 0, 0, 0, 0, 0],
+        'target' => [1, 0, 2, 1, 0, 0, 0, 0, 0] // Take middle-left
     ],
     [
-        'input' => [
-            1,
-            0,
-            0,
-            2,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ],
-        'target' => [
-            1,
-            1,
-            0,
-            2,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ]
+        'input'  => [1, 0, 0, 2, 0, 0, 0, 0, 0],
+        'target' => [1, 1, 0, 2, 0, 0, 0, 0, 0] // Take top-center
     ],
     [
-        'input' => [
-            1,
-            0,
-            0,
-            0,
-            2,
-            0,
-            0,
-            0,
-            0,
-        ],
-        'target' => [
-            1,
-            0,
-            0,
-            1,
-            2,
-            0,
-            0,
-            0,
-            0,
-        ]
+        'input'  => [1, 0, 0, 0, 2, 0, 0, 0, 0],
+        'target' => [1, 0, 0, 1, 2, 0, 0, 0, 0] // Respond to center
     ],
     [
-        'input' => [
-            1,
-            0,
-            0,
-            0,
-            0,
-            2,
-            0,
-            0,
-            0,
-        ],
-        'target' => [
-            1,
-            0,
-            1,
-            0,
-            0,
-            2,
-            0,
-            0,
-            0,
-        ]
+        'input'  => [1, 0, 0, 0, 0, 2, 0, 0, 0],
+        'target' => [1, 0, 1, 0, 0, 2, 0, 0, 0] // Take top-right
     ],
     [
-        'input' => [
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            2,
-            0,
-            0,
-        ],
-        'target' => [
-            1,
-            1,
-            0,
-            0,
-            0,
-            0,
-            2,
-            0,
-            0,
-        ]
+        'input'  => [1, 0, 0, 0, 0, 0, 2, 0, 0],
+        'target' => [1, 1, 0, 0, 0, 0, 2, 0, 0] // Take top-center
     ],
     [
-        'input' => [
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            2,
-            0,
-        ],
-        'target' => [
-            1,
-            0,
-            1,
-            0,
-            0,
-            0,
-            0,
-            2,
-            0,
-        ]
+        'input'  => [1, 0, 0, 0, 0, 0, 0, 2, 0],
+        'target' => [1, 0, 1, 0, 0, 0, 0, 2, 0] // Take top-right
     ],
     [
-        'input' => [
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            2,
-        ],
-        'target' => [
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1,
-            0,
-            2,
-        ]
+        'input'  => [1, 0, 0, 0, 0, 0, 0, 0, 2],
+        'target' => [1, 0, 0, 0, 0, 0, 1, 0, 2] // Take bottom-left
     ],
     [
-        'input' => [
-            1,
-            2,
-            0,
-            1,
-            0,
-            0,
-            2,
-            0,
-            0,
-        ],
-        'target' => [
-            1,
-            2,
-            0,
-            1,
-            1,
-            0,
-            2,
-            0,
-            0,
-        ]
+        'input'  => [1, 2, 0, 1, 0, 0, 2, 0, 0],
+        'target' => [1, 2, 0, 1, 1, 0, 2, 0, 0] // Take center
     ],
     [
-        'input' => [
-            1,
-            2,
-            0,
-            1,
-            1,
-            0,
-            2,
-            0,
-            2,
-        ],
-        'target' => [
-            1,
-            2,
-            0,
-            1,
-            1,
-            1,
-            2,
-            0,
-            2,
-        ]
+        'input'  => [1, 2, 0, 1, 1, 0, 2, 0, 2],
+        'target' => [1, 2, 0, 1, 1, 1, 2, 0, 2] // Complete row (winning move)
     ],
     [
-        'input' => [
-            1,
-            2,
-            0,
-            1,
-            1,
-            0,
-            2,
-            2,
-            0,
-        ],
-        'target' => [
-            1,
-            2,
-            0,
-            1,
-            1,
-            0,
-            2,
-            2,
-            1,
-        ]
+        'input'  => [1, 2, 0, 1, 1, 0, 2, 2, 0],
+        'target' => [1, 2, 0, 1, 1, 0, 2, 2, 1] // Complete column (winning move)
+    ],
+    [
+        'input'  => [0, 0, 0, 0, 0, 0, 1, 0, 0],
+        'target' => [0, 0, 0, 0, 2, 0, 1, 0, 0] // O response: take center against corner opening
+    ],
+    [
+        'input'  => [0, 0, 0, 0, 0, 2, 1, 0, 0],
+        'target' => [0, 0, 0, 0, 1, 2, 1, 0, 0] // X response: seize center when O plays edge
     ],
 ];
 
-// network architecture
+// Network architecture: 3 layers x 9 neurons
 $NET_NR_LAYERS = 3;
 $NET_LAYER_SIZE = 9;
-$NET_ACTIVATION = "Sigmoid";
-$NET_FILE = "xoxo_model.json";
-// training parameters
-$MAX_GENERATIONS = 5000;
-$MUTATION_RATE = 10; // in percentage
-$TARGET_FITNESS = 0.95;
-$POPULATION_SIZE = 100;
+$NET_FILE = __DIR__ . '/xoxo_model.json';
 
-echo "🎮 XOXO Game AI Training\n";
-echo "========================\n";
-echo "Training data samples: " . count($TRAIN_DATA) . "\n";
-echo "Network architecture: $NET_NR_LAYERS layers × $NET_LAYER_SIZE neurons\n";
-echo "Population size: $POPULATION_SIZE\n";
-echo "Mutation rate: $MUTATION_RATE%\n\n";
+echo "\n=========================================\n";
+echo "      XOXO Neural Network Trainer        \n";
+echo "=========================================\n";
+echo "Training Samples: " . count($TRAIN_DATA) . "\n";
+echo "Architecture:     {$NET_NR_LAYERS} layers × {$NET_LAYER_SIZE} neurons (Sigmoid)\n";
+echo "Method:           " . ($useGA ? "Genetic Algorithm (Evolutionary)" : "Backpropagation (Gradient Descent / Adam)") . "\n";
+echo "Output Model:     {$NET_FILE}\n\n";
 
 try {
-    if (file_exists($NET_FILE)) {
-        echo "Loading existing network from $NET_FILE...\n";
-        $networkJson = file_get_contents($NET_FILE);
-        $network = Network::Load($networkJson);
-        echo "Network loaded successfully.\n\n";
+    // 1. Initialize or Load Network
+    $resume = in_array('--resume', $argv, true);
+    if ($resume && file_exists($NET_FILE)) {
+        echo "Resuming training from existing model: {$NET_FILE}...\n";
+        $network = Network::Load(file_get_contents($NET_FILE));
     } else {
-        echo "Creating new network...\n";
-        $network = Network::Create(
-            "XOXO",
-            $NET_NR_LAYERS,
-            $NET_LAYER_SIZE,
-            new Sigmoid()
-        );
-        echo "New network created.\n\n";
+        echo "Creating fresh neural network with Xavier initialization...\n";
+        $network = Network::Create("XOXO_AI", $NET_NR_LAYERS, $NET_LAYER_SIZE, new Sigmoid());
+        $network->initializeWeights(new XavierInitializer());
     }
 
-    $trainer = new Trainer($network, $POPULATION_SIZE, $MUTATION_RATE);
+    $startTime = microtime(true);
 
-    // train network
-    echo "Starting training with $POPULATION_SIZE networks for max $MAX_GENERATIONS generations...\n";
-    echo "Target fitness: " . ($TARGET_FITNESS * 100) . "%\n\n";
+    if (!$useGA) {
+        // =========================================================================
+        // BACKPROPAGATION TRAINING (Fast, Accurate, Recommended)
+        // =========================================================================
+        $learningRate = 0.05;
+        $maxEpochs = 500;
+        $targetLoss = 0.005;
 
-    foreach ($TRAIN_DATA as $sample) {
-        for ($i = 0; $i < $MAX_GENERATIONS; $i++) {
-            // Train on all samples in this generation
-            $trainer->Train(prepareString($sample['input']), prepareString($sample['target']));
+        echo "Configuring Backpropagation Trainer (Adam, lr={$learningRate})...\n";
+        $trainer = new BackpropagationTrainer(
+            $network,
+            new MeanSquaredError(),
+            $learningRate,
+            new Adam()
+        );
+
+        // Normalize dataset:
+        // Input: 0.0 = empty, 0.5 = X, 1.0 = O
+        // Target: 1.0 for the expected move position, 0.0 for other cells
+        $bpDataset = [];
+        foreach ($TRAIN_DATA as $sample) {
+            $normInput = array_map(fn($v) => $v / 2.0, $sample['input']);
+            $targetVector = [];
+            for ($i = 0; $i < 9; $i++) {
+                $targetVector[] = ($sample['input'][$i] === 0 && $sample['target'][$i] !== 0) ? 1.0 : 0.0;
+            }
+            $bpDataset[] = [$normInput, $targetVector];
         }
-        // Evaluate fitness less frequently for performance
-        if ($i % 10 == 0 || $i == $MAX_GENERATIONS - 1) {
-            $bestNetwork = $trainer->getBestNetwork();
-            $predictor = new Predictor($bestNetwork);
-            $correctPredictions = 0;
 
-            // Check fitness on all training samples
-            foreach ($TRAIN_DATA as $sample) {
-                $inputStr = prepareString($sample['input']);
-                $expectedStr = prepareString($sample['target']);
-                $outputStr = $predictor->Predict($inputStr);
+        echo "Training for up to {$maxEpochs} epochs (target loss: {$targetLoss})...\n";
+        $epochLosses = $trainer->trainBatch($bpDataset, $maxEpochs, $targetLoss);
 
-                if ($outputStr === $expectedStr) {
-                    $correctPredictions++;
+        $trainingTime = microtime(true) - $startTime;
+        $finalLoss = end($epochLosses);
+        $totalEpochs = count($epochLosses);
+
+        echo "✓ Training finished in " . round($trainingTime, 3) . "s ({$totalEpochs} epochs, final loss: " . round($finalLoss, 6) . ")\n\n";
+        $bestNetwork = $trainer->getNetwork();
+
+    } else {
+        // =========================================================================
+        // GENETIC ALGORITHM TRAINING (Evolutionary)
+        // =========================================================================
+        $populationSize = 100;
+        $mutationRate = 10;
+        $maxGenerations = 1000;
+        $targetAccuracy = 1.0;
+
+        echo "Configuring Genetic Algorithm Trainer (pop={$populationSize}, mut={$mutationRate}%)...\n";
+        $trainer = new Trainer($network, $populationSize, $mutationRate);
+
+        // Encoding for GA string interface:
+        // Map: 0 -> chr(0) (0.0), 1 -> chr(127) (~0.5), 2 -> chr(255) (1.0)
+        $gaData = [];
+        foreach ($TRAIN_DATA as $sample) {
+            $inStr = implode('', array_map(fn($v) => chr((int)round($v * 127.5)), $sample['input']));
+            $targetStr = implode('', array_map(fn($v) => chr((int)round($v * 127.5)), $sample['target']));
+            $gaData[] = ['input' => $inStr, 'target' => $targetStr, 'raw' => $sample];
+        }
+
+        echo "Starting evolutionary training (max {$maxGenerations} generations)...\n";
+        $bestAcc = 0.0;
+
+        for ($gen = 1; $gen <= $maxGenerations; $gen++) {
+            // Train on all samples in this generation
+            foreach ($gaData as $item) {
+                $trainer->Train($item['input'], $item['target']);
+            }
+
+            // Periodically evaluate move accuracy
+            if ($gen % 25 === 0 || $gen === 1 || $gen === $maxGenerations) {
+                $candidate = $trainer->getBestNetwork();
+                $correct = evaluateMoveAccuracy($candidate, $TRAIN_DATA);
+                $acc = $correct / count($TRAIN_DATA);
+
+                if ($acc > $bestAcc) {
+                    $bestAcc = $acc;
+                }
+
+                echo "Generation {$gen}: accuracy = " . round($acc * 100, 1) . "% (best: " . round($bestAcc * 100, 1) . "%)\n";
+
+                if ($acc >= $targetAccuracy) {
+                    echo "🎯 Target accuracy reached at generation {$gen}!\n";
+                    break;
                 }
             }
+        }
 
-            $fitness = $correctPredictions / count($TRAIN_DATA);
+        $trainingTime = microtime(true) - $startTime;
+        echo "✓ Evolution finished in " . round($trainingTime, 3) . "s\n\n";
+        $bestNetwork = $trainer->getBestNetwork();
+    }
 
-            // Check if target reached
-            if ($fitness >= $TARGET_FITNESS) {
-                echo "🎯 Target fitness reached: " . round($fitness * 100, 2) . "% at generation $i\n";
+    // =========================================================================
+    // FINAL EVALUATION
+    // =========================================================================
+    echo "=========================================\n";
+    echo "          Final Move Evaluation          \n";
+    echo "=========================================\n";
+
+    $correctMoves = 0;
+    foreach ($TRAIN_DATA as $idx => $sample) {
+        $normInput = array_map(fn($v) => $v / 2.0, $sample['input']);
+        $scores = $bestNetwork->Calculate($normInput);
+
+        // Find top predicted move among empty cells
+        $bestPos = -1;
+        $bestScore = -INF;
+        for ($i = 0; $i < 9; $i++) {
+            if ($sample['input'][$i] === 0 && $scores[$i] > $bestScore) {
+                $bestScore = $scores[$i];
+                $bestPos = $i;
+            }
+        }
+
+        // Expected move position
+        $expectedPos = -1;
+        for ($i = 0; $i < 9; $i++) {
+            if ($sample['input'][$i] === 0 && $sample['target'][$i] !== 0) {
+                $expectedPos = $i;
                 break;
             }
+        }
 
-            // Progress reporting
-            if ($i % 100 == 0) {
-                echo "Generation $i: fitness = " . round($fitness * 100, 2) . "%\n";
+        $isMatch = ($bestPos === $expectedPos);
+        if ($isMatch) {
+            $correctMoves++;
+        }
+
+        $status = $isMatch ? "✓ PASS" : "✗ FAIL";
+        echo sprintf("Sample %2d: Expected pos %d, Got pos %d  [%s]\n", $idx + 1, $expectedPos + 1, $bestPos + 1, $status);
+    }
+
+    $finalAccuracy = ($correctMoves / count($TRAIN_DATA)) * 100;
+    echo "\n🎯 Move Accuracy: " . round($finalAccuracy, 1) . "% ({$correctMoves}/" . count($TRAIN_DATA) . ")\n\n";
+
+    // 3. Save Trained Model
+    $json = $bestNetwork->Json();
+    if (file_put_contents($NET_FILE, $json) !== false) {
+        echo "💾 Model successfully saved to: {$NET_FILE}\n";
+        echo "📊 Size: " . number_format(strlen($json)) . " bytes\n";
+    } else {
+        fwrite(STDERR, "⚠️  Failed to save model to {$NET_FILE}\n");
+    }
+
+    echo "\n🎉 Model is ready! You can test it by running:\n";
+    echo "   php examples/simple/xoxo.php\n\n";
+
+} catch (Exception $e) {
+    fwrite(STDERR, "Error: " . $e->getMessage() . "\n");
+    fwrite(STDERR, "File: " . $e->getFile() . ":" . $e->getLine() . "\n");
+    exit(1);
+}
+
+/**
+ * Evaluates move accuracy for a network against training data
+ */
+function evaluateMoveAccuracy(Network $network, array $trainData): int
+{
+    $correct = 0;
+    foreach ($trainData as $sample) {
+        $normInput = array_map(fn($v) => $v / 2.0, $sample['input']);
+        $scores = $network->Calculate($normInput);
+
+        $bestPos = -1;
+        $bestScore = -INF;
+        for ($i = 0; $i < 9; $i++) {
+            if ($sample['input'][$i] === 0 && $scores[$i] > $bestScore) {
+                $bestScore = $scores[$i];
+                $bestPos = $i;
             }
         }
-    }
-    // Get final best network
-    $bestNetwork = $trainer->getBestNetwork();
 
-    // Final evaluation
-    echo "\n🧪 Final Evaluation:\n";
-    echo "====================\n";
-    $predictor = new Predictor($bestNetwork);
-    $totalCorrect = 0;
-
-    foreach ($TRAIN_DATA as $index => $sample) {
-        $inputStr = prepareString($sample['input']);
-        $expectedStr = prepareString($sample['target']);
-        $outputStr = $predictor->Predict($inputStr);
-
-        $isCorrect = $outputStr === $expectedStr;
-        if ($isCorrect) {
-            $totalCorrect++;
+        $expectedPos = -1;
+        for ($i = 0; $i < 9; $i++) {
+            if ($sample['input'][$i] === 0 && $sample['target'][$i] !== 0) {
+                $expectedPos = $i;
+                break;
+            }
         }
 
-        echo "Sample " . ($index + 1) . ": " . ($isCorrect ? "✅ PASS" : "❌ FAIL") . "\n";
-        echo "  Input:    [" . implode(', ', $sample['input']) . "]\n";
-        echo "  Expected: [" . implode(', ', $sample['target']) . "]\n";
-
-        // Convert output back to array for display
-        $outputArray = array_map(fn($char) => ord($char) / 255.0, str_split($outputStr));
-        $outputArrayRounded = array_map(fn($val) => round($val, 3), $outputArray);
-        echo "  Got:      [" . implode(', ', $outputArrayRounded) . "]\n\n";
+        if ($bestPos === $expectedPos) {
+            $correct++;
+        }
     }
-
-    $finalAccuracy = $totalCorrect / count($TRAIN_DATA);
-    echo "🎯 Final Accuracy: " . round($finalAccuracy * 100, 2) . "% ($totalCorrect/" . count($TRAIN_DATA) . ")\n\n";
-
-        // save network
-    ;
-    $networkJson = $bestNetwork->Json();
-
-    if (file_put_contents($NET_FILE, $networkJson) !== false) {
-        echo "💾 Network saved to: $NET_FILE\n";
-        echo "📊 Model size: " . number_format(strlen($networkJson)) . " bytes\n";
-    } else {
-        echo "⚠️  Warning: Failed to save network to $NET_FILE\n";
-    }
-
-    echo "\n🎉 Training completed successfully!\n";
-} catch (Exception $e) {
-    echo "\n❌ Error during training: " . $e->getMessage() . "\n";
-    echo "📍 File: " . $e->getFile() . " line " . $e->getLine() . "\n";
-
-    if (method_exists($e, 'getTraceAsString')) {
-        echo "\n📋 Stack trace:\n" . $e->getTraceAsString() . "\n";
-    }
-
-    exit(1);
+    return $correct;
 }

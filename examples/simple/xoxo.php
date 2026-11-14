@@ -136,13 +136,13 @@ function getAiMove(array $board, Network $network, string $aiMark, string $human
     }
 
     // 3. Neural Network Preference:
-    // Convert board to numeric input: 0.0 for empty, 1.0 for X, 2.0 for O
+    // Convert board to normalized numeric input: 0.0 for empty, 0.5 for X, 1.0 for O
     $numeric = [];
     for ($i = 0; $i < 9; $i++) {
         if ($board[$i] === 'X') {
-            $numeric[] = 1.0;
+            $numeric[] = 0.5;
         } elseif ($board[$i] === 'O') {
-            $numeric[] = 2.0;
+            $numeric[] = 1.0;
         } else {
             $numeric[] = 0.0;
         }
